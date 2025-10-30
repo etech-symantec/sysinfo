@@ -25,10 +25,19 @@
   .subtitle {
     font-size: 0.7em; /* 절반 크기 */
     font-weight: normal;
-    color: #bfc8d6;
+    color: #bcd0f7;
     opacity: 0.9;     /* 살짝 연하게 */
   }
+  .date-container {
+    text-align: right;
+    line-height: 1.2;
+  }
 
+  .version {
+    font-size: 14px;
+    color: #bcd0f7; /* 회색-파랑 톤으로 살짝 강조 */
+    opacity: 0.9;     /* 살짝 연하게 */
+  }
   .date-header {
     font-size: 16px;
     color: #fff;
@@ -226,7 +235,10 @@
     ProxySG Auto Sysinfo Report<br>
     <span class="subtitle">by 이테크시스템</span>
   </div>
-  <div class="date-header" id="today-date"></div>
+  <div class="date-container">
+    <div class="version">ver.2025.10.30.01</div><p>
+    <div class="date-header" id="today-date"></div>
+  </div>
 </h1>
 
 
