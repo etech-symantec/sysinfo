@@ -6,15 +6,29 @@
 <style>
   body { font-family: "Segoe UI", Arial, sans-serif; background: #f5f7fa; margin: 20px; color:#333; }
   h1 {
-    background: #1e3a5f; 
-    color: white; 
-    padding: 12px 18px; 
+  	font-size: 1.5em;
+    background: #1e3a5f;
+    color: white;
+    padding: 12px 18px;
     border-radius: 8px;
     display: flex;
-    justify-content: space-between;
-    align-items: flex-end;  /* 아래 정렬 */
-    margin-bottom: 5pt;  /* 여백 5pt */
+    justify-content: space-between;  /* 좌우 배치 */
+    align-items: flex-end;            /* 아래 정렬 */
+    margin-bottom: 5pt;
   }
+
+  .title-left {
+    display: flex;
+    flex-direction: column; /* 제목과 by 줄을 세로로 배치 */
+  }
+
+  .subtitle {
+    font-size: 0.7em; /* 절반 크기 */
+    font-weight: normal;
+    color: #bfc8d6;
+    opacity: 0.9;     /* 살짝 연하게 */
+  }
+
   .date-header {
     font-size: 16px;
     color: #fff;
@@ -32,16 +46,196 @@
   input[type=file] { margin: 15px 0; }
   button { background:#1e3a5f; color:white; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; margin-top:10px; }
   button:hover { background:#294b7a; }
+  
+  .button-bar {
+  display: flex;
+  justify-content: space-between;  /* 좌우 끝으로 배치 */
+  align-items: center;
+  margin: -10px 0;
+}
+
+#fileInput {
+  flex: 1;
+  max-width: 300px; /* 필요 시 조정 */
+}
+
+#downloadBtn {
+  background: #1e3a5f;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-left: 10px;
+}
+#downloadBtn:hover {
+  background: #294b7a;
+}
+
+
+.notice {
+  color: #999;
+  font-weight: 600;
+  margin-top: 4px;
+  margin-bottom: 12px;
+  text-align: left;
+}
+
+  
+  
+  body {
+    font-family: "Segoe UI", Arial, sans-serif;
+    background: #f3f4f6;
+    margin: 0;
+    padding: 40px;
+  }
+
+  /* === 모달 트리거 버튼 === */
+  #openModal {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    background: #2563eb;
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    z-index: 1001;
+  }
+  #openModal:hover { background: #1e40af; }
+
+  /* === 모달 오버레이 === */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.45);
+    backdrop-filter: blur(2px);
+    z-index: 999;
+    justify-content: center;
+    align-items: center;
+  }
+
+  /* === 모달 본체 === */
+  .modal {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    width: 90%;
+    max-width: 940px;
+    max-height: 90%;
+    overflow-y: auto;
+    position: relative;
+    animation: fadeIn .3s ease;
+  }
+
+  .close-btn {
+    position: absolute;
+    top: 8px;
+    right: 14px;
+    background: transparent;
+    color: #444;
+    font-size: 28px;
+    border: none;
+    cursor: pointer;
+    z-index: 1000;
+  }
+  .close-btn:hover { color: #000; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* === 기존 Sysinfo curl UI 스타일 (간소화 버전) === */
+  .container {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+    margin: 30px;
+    padding: 28px 32px;
+  }
+  h2 {
+    margin: 0 0 18px 0;
+    font-size: 20px;
+    color: #1e3a8a;
+    border-bottom: 2px solid #e0e7ff;
+    padding-bottom: 6px;
+  }
+  label { font-weight: 600; font-size: 13px; color: #374151; display: block; }
+  input[type="text"], input[type="password"], textarea {
+    padding: 9px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    font-size: 14px;
+    background-color: #fafafa;
+  }
+  input:focus, textarea:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37,99,235,0.2);
+    background-color: #fff;
+  }
+  .input-row {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .w-sm { width: 100px; }
+  .w-md { width: 140px; }
+  textarea { width: 90%; min-height: 80px; resize: vertical; }
+  pre {
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 12px;
+    border-radius: 10px;
+    min-height: 120px;
+    white-space: pre-wrap;
+    overflow-x: auto;
+    margin-top: 10px;
+  }
+  button {
+    background: #2563eb;
+    border: none;
+    color: #fff;
+    padding: 9px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  button:hover { background: #1e40af; }
+  .actions { margin-top: 12px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .note { font-size: 13px; color: #1e3a8a; background: #eff6ff; border: 1px solid #bfdbfe; padding: 6px 10px; border-radius: 6px; }
+  .badge { background: #e0e7ff; color: #1e3a8a; font-size: 12px; padding: 2px 6px; border-radius: 4px; margin-left: 6px; }
 </style>
 </head>
 <body>
 
-<h1>ProxySG Auto Sysinfo Report
-<!-- 날짜를 오른쪽에 표시 -->
-  <div class="date-header" id="today-date"></div></h1>
+<h1>
+  <div class="title-left">
+    ProxySG Auto Sysinfo Report<br>
+    <span class="subtitle">by 이테크시스템</span>
+  </div>
+  <div class="date-header" id="today-date"></div>
+</h1>
 
-<input type="file" id="fileInput" accept=".txt">
+
+<div class="button-bar">
+  <input type="file" id="fileInput" accept=".txt" multiple>
+  <button id="downloadBtn">💾 현재 페이지 HTML로 다운로드하기</button>
+</div>
+
+<!-- ✅ 안내 문구 추가 -->
+<div id="notice" class="notice">
+	<br>
+  ※ 특정 서버에 파일이 올라가지 않으며, HTML 파일 내에서만 처리되는 방식입니다.
+</div>
 <div id="report"></div>
+
 
 <script>
     // 오늘 날짜 구하기 (yyyy. mm. dd. 형식)
@@ -55,28 +249,7 @@
     const today = new Date();
     const formattedDate = formatDate(today);
 
-	//  날짜 차이 배경 계산기
-	function getDateClass(dateString) {
-      const today = new Date();
-      const targetDate = new Date(dateString);
-
-      // 날짜 차이 계산 (밀리초 단위)
-      const timeDiff = today - targetDate;
-
-      // 날짜 차이를 일(day) 단위로 변환
-      const diffInDays = Number(Math.floor(timeDiff / (1000 * 3600 * 24)));
-      
-      // 날짜 차이에 따라 클래스를 적용
-      if (diffInDays < 0) {
-        return "red";  // 마이너스 값은 무조건 빨간색
-      } else if (diffInDays <= 30) {
-        return "red";  // 30 이하 값은 빨간색
-      } else if (diffInDays <= 60) {
-        return "yellow"; // 60 이하 값은 노란색
-      } else {
-        return "white"; // 60보다 큰 값은 흰색
-      }
-    }
+	
     
     //  날짜 차이 일수 계산기
 	function getDateDiff(dateString) {
@@ -84,28 +257,45 @@
       const date = new Date(dateString);
 
       // 날짜 차이 계산 (밀리초 단위)
-      const timeDiff = today - date;
+      const timeDiff = date - today;
 
       // 날짜 차이를 일(day) 단위로 변환
       const diffInDays = Number(Math.floor(timeDiff / (1000 * 3600 * 24)));
-      
       return diffInDays
       
     }
 
+    // 날짜를 페이지에 표시
+    document.getElementById("today-date").innerHTML = `오늘 날짜: ${formattedDate}`;
 
 
-// 날짜를 페이지에 표시
-document.getElementById("today-date").innerHTML = `오늘 날짜: ${formattedDate}`;
 
-document.getElementById("fileInput").addEventListener("change", function(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(ev) {
-    const text = ev.target.result;
-    const match = (r) => text.match(r)?.[1]?.trim() || "-";
-    const oknok = (v) => (v.match(/NOK/i) ? 'class="nok"' : "");
+    // ✅ 여러 파일 업로드 대응
+    document.getElementById("fileInput").addEventListener("change", async function (e) {
+    
+      // ✅ 파일 업로드 시 안내 문구 제거
+      document.getElementById("notice")?.remove();
+
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    
+    // 상단 업로드 목록 표시
+    const fileListHTML = files.map((f, i) => `<li>${i + 1}. ${f.name}</li>`).join("");
+    document.getElementById("report").innerHTML = `
+      <div class="section">
+        <div class="section-header">📂 정리된 sysinfo 파일 목록 (${files.length}개)</div>
+        <ul style="margin:17px 10px;">${fileListHTML}<br></ul>
+      </div>`;
+
+    // Promise.all 로 모든 파일 처리
+    const results = await Promise.all(
+      files.map((file) => {
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = function (ev) {
+            const text = ev.target.result;
+            const match = (r) => text.match(r)?.[1]?.trim() || "-";
+            const oknok = (v) => (v.match(/NOK/i) ? 'class="nok"' : "");
 
     // -----------------------------
     // ✅ General Info
@@ -569,8 +759,8 @@ const deploymentMode = explicitBytes > externalBytes ? "Explicit" : "TP";
     // -----------------------------
     // Logging & Services
     // -----------------------------
-    const icapReq = match(/ICAP REQ:\s*(\d+)/i);
-    const icapResp = match(/ICAP RESP:\s*(\d+)/i);
+    const icapReq = "만드는 중";
+	const icapResp = "만드는 중";
     
     
     // Title: Access Log (main) Statistics 키워드가 포함된 줄 찾기
@@ -654,65 +844,269 @@ const deploymentMode = explicitBytes > externalBytes ? "Explicit" : "TP";
 
     
     
-    // -----------------------------
-    // HTML 출력
-    // -----------------------------
-    document.getElementById("report").innerHTML = `
-    <div class="section">
-      <div class="section-header">① General Information & Configuration Backup</div>
-      <table>
-        <tr><th>Host Name</th><th>Model</th><th>Serial Number</th><th>SGOS Version</th>
-            <th>Uptime (SW / HW)</th><th>CPU Temp</th><th>System Temp</th><th>Deployment Mode</th></tr>
-        <tr>
-          <td>${host}</td><td>${model}</td><td>${serial}</td><td>${sgos}</td>
-          <td>${uptime}</td><td>${cpuTemp ? cpuTemp+"°C" : "-"}</td>
-          <td>${sysTemp ? sysTemp+"°C" : "-"}</td><td>${deploymentMode}</td>
-        </tr>
-      </table>
-    </div>
-
-    <div class="section">
-      <div class="section-header">② Hardware & Network</div>
-      <table>
-        <tr><th>CPU Usage</th><th>MEM Usage</th><th>Disk</th><th>Tx Rate</th><th>Rx Rate</th>
-            <th>Users</th><th>HTTPS Sessions</th><th>Total Traffic</th><th>Peak Traffic</th><th>HTTP%</th><th>HTTPS%</th><th>Savings</th></tr>
-        <tr>
-          <td>${cpuNow} / ${cpuPeak}</td><td>${memNow} / ${memPeak}</td><td ${oknok(disk)}>${disk}</td>
+    // === 결과를 resolve로 반환 ===
+            resolve({
+              name: file.name,
+              section1: `<tr>
+                  <td>${host}</td><td>${model}</td><td>${serial}</td>
+                  <td>${sgos}</td><td>${uptime}</td><td>${cpuTemp ? cpuTemp+"°C" : "-"}</td><td>${sysTemp ? sysTemp+"°C" : "-"}</td><td>${deploymentMode}</td>
+                </tr>`,
+              section2: `<tr>
+                  <td>${cpuNow} / ${cpuPeak}</td><td>${memNow} / ${memPeak}</td>
+                  <td ${oknok(disk)}>${disk}</td>
           <td>${txRate}</td><td>${rxRate}</td><td>${users}</td><td>${httpsSessions}</td>
-          <td>${totalTraffic}</td><td>${peakTraffic}</td><td>${httpPercent}</td><td>${httpsPercent}</td><td>${savingsPercent}</td>
-        </tr>
-      </table>
-    </div>
+                  <td>${totalTraffic}</td><td>${peakTraffic}</td><td>${httpPercent}</td><td>${httpsPercent}</td><td>${savingsPercent}</td>
+                </tr>`,
+              section3: `<tr><td>${licenseDate} (${getDateDiff(licenseDate)}일)</td><td>${urlFilter} / ${dataValid} (${getDateDiff(dataValid)}일)</td>
+          <td>${localDBDate} (${getDateDiff(localDBDate)}일)</td><td>${webpulse}</td><td>${appProtect}</td>
+          <td>${appClass}</td><td>${auth}</td><td>${etap}</td></tr>`,
+              section4: `<tr><td>${icapReq}</td><td>${icapResp}</td><td>${httpLog}MB</td>
+          <td>${httpsLog}MB</td><td>${Logbackup}</td><td>${syslogStatus}</td><td>${coreImage}</td></tr>`
+            });
+          };
+          reader.readAsText(file);
+        });
+      })
+    );
 
-    <div class="section">
-      <div class="section-header">③ Proxy Features</div>
-      <table>
-        <tr><th>License Expiry</th><th>Web Filtering Database</th><th>Local DB</th><th>WebPulse</th><th>App Protect</th>
-            <th>App Class</th><th>Auth</th><th>eTap</th></tr>
-        <tr>
-          <td id="licenseDate" class="${getClassForDate(licenseDate)}">${licenseDate} / ${getDateDiff(licenseDate)}</td><td id="dataValid" class="${getClassForDate(dataValid)}">${urlFilter} / ${dataValid} / ${getDateDiff(dataValid)}</td>
-          <td id="localDBDate" class="${getClassForDate(localDBDate)}">${localDBDate} / ${getDateDiff(localDBDate)}</td><td>${webpulse}</td><td>${appProtect}</td>
-          <td>${appClass}</td><td>${auth}</td><td>${etap}</td>
-        </tr>
-      </table>
-    </div>
+    // ✅ 모든 파일 읽은 뒤 HTML 생성
+    const s1 = results.map((r) => r.section1).join("");
+    const s2 = results.map((r) => r.section2).join("");
+    const s3 = results.map((r) => r.section3).join("");
+    const s4 = results.map((r) => r.section4).join("");
 
-    <div class="section">
-      <div class="section-header">④ Logging & Services</div>
-      <table>
-        <tr><th>ICAP REQ</th><th>ICAP RESP</th><th>HTTP Log</th><th>HTTPS Log</th>
-            <th>Access Log Backup</th><th>Event Log Backup</th><th>Core Image</th></tr>
-        <tr>
-          <td>${icapReq}</td><td>${icapResp}</td><td>${httpLog}MB</td>
-          <td>${httpsLog}MB</td><td>${Logbackup}</td><td>${syslogStatus}</td><td>${coreImage}</td>
-        </tr>
-      </table>
-    </div>
-    `;
-  };
-  reader.readAsText(file);
+    document.getElementById("report").innerHTML += `
+      <div class="section">
+        <div class="section-header">① General Information & Configuration Backup</div>
+        <table>
+          <tr>
+          	<th colspan="5">Appliance</th>
+            <th colspan="2">Temperature</th>
+            <th rowspan="2">Deployment Mode</th>
+          </tr>
+          <tr>
+          	<th>Host Name</th>
+            <th>Model</th>
+            <th>Serial Number</th>
+            <th>SGOS Version</th>
+            <th>Uptime (SW/HW)</th>
+            <th>CPU Temp</th>
+            <th>System Temp</th>
+          </tr>
+          ${s1}
+        </table>
+      </div>
+
+      <div class="section">
+        <div class="section-header">② Hardware & Network</div>
+        <table>
+          <tr>
+          	<th rowspan="2">CPU Usage<br>(Now/Peak)</th>
+            <th rowspan="2">MEM Usage<br>(Now/Peak)</th>
+            <th rowspan="2">Disk Status</th>
+            <th colspan="2">Interface</th>
+            <th colspan="2">Network (Peak)</th>
+            <th colspan="5">Intercepted Traffic Usage</th>
+          </tr>
+          <tr>
+          	<th>Tx Rate</th>
+            <th>Rx Rate</th>
+            <th>Users</th>
+            <th>HTTPS Sessions</th>
+            <th>Total Traffic</th>
+            <th>Peak Traffic</th>
+            <th>HTTP%</th>
+            <th>HTTPS%</th>
+            <th>Savings</th>
+  		   </tr>
+          ${s2}
+        </table>
+      </div>
+
+      <div class="section">
+        <div class="section-header">③ Proxy Features</div>
+        <table>
+          <tr>
+          	<th rowspan="2">License Expiry</th>
+            <th rowspan="2">Web Filtering Database</th>
+            <th rowspan="2">Local DB</th>
+            <th colspan="2">Threat Protection</th>
+            <th colspan="3">Configuration</th>
+  		  </tr>
+          <tr>
+          	<th>WebPulse</th>
+            <th>App Protect</th>
+            <th>App Class</th>
+            <th>Auth</th>
+            <th>eTap</th>
+  		  </tr>
+          ${s3}
+        </table>
+      </div>
+
+      <div class="section">
+        <div class="section-header">④ Logging & Services</div>
+        <table>
+          <tr>
+          	<th colspan="2">Content Analysis (ICAP)</th>
+            <th colspan="2">Access Logs Size</th>
+            <th colspan="3">Log Backup Settings</th>
+          </tr>
+          <tr>
+          	<th>REQ</th>
+            <th>RESP</th>
+            <th>HTTP Log</th>
+            <th>HTTPS Log</th>
+            <th>Access Log Backup</th>
+            <th>Event Log Backup</th>
+            <th>Core Image</th>
+          </tr>
+          ${s4}
+        </table>
+      </div>`;
+  });
+  
+  
+  // ✅ HTML 다운로드 버튼 기능
+document.getElementById("downloadBtn").addEventListener("click", function () {
+  // 현재 페이지 HTML 전체를 Blob으로 저장
+  const fullHTML = document.documentElement.outerHTML;
+  const blob = new Blob([fullHTML], { type: "text/html" });
+
+  // 오늘 날짜 기반 파일명
+  const date = new Date();
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  const fileName = `ProxySG_Report_${yyyy}${mm}${dd}.html`;
+
+  // 다운로드 링크 생성 및 실행
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = fileName;
+  a.click();
+
+  // 메모리 해제
+  URL.revokeObjectURL(a.href);
 });
+
 </script>
+
+
+
+
+<!-- === 모달 트리거 버튼 === -->
+<button id="openModal">🧩 curl 명령어 만들기</button>
+
+<!-- === 모달 구조 === -->
+<div id="modalOverlay" class="modal-overlay">
+  <div class="modal">
+    <button class="close-btn">×</button>
+
+    <!-- === 실제 Sysinfo curl 생성기 HTML 삽입 === -->
+    <div class="container">
+      <h2>Sysinfo curl 명령어 생성기 <span class="badge">마지막만 explorer 실행</span></h2>
+
+      <div class="input-row">
+        <div>
+          <label>Username</label>
+          <input id="username" type="text" class="w-sm" placeholder="admin">
+        </div>
+        <div>
+          <label>Password</label>
+          <input id="password" type="password" class="w-sm" placeholder="password">
+        </div>
+        <div>
+          <label>Path</label>
+          <input id="endpoint" type="text" class="w-md" value="/sysinfo">
+        </div>
+      </div>
+
+      <div class="input-row">
+        <div style="width:90%;">
+          <label>Proxy IP / Host (여러 개 입력 가능)</label>
+          <textarea id="proxyList" placeholder="예: 192.168.1.10, 192.168.1.11"></textarea>
+        </div>
+      </div>
+
+      <label>생성된 curl 명령</label>
+      <pre id="cmds"></pre>
+
+      <div class="actions">
+        <button id="copy">전체 복사</button>
+        <span class="note">📂 마지막 다운로드 완료 후에만 폴더가 열립니다.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // === 모달 제어 ===
+  const openModal = document.getElementById("openModal");
+  const modalOverlay = document.getElementById("modalOverlay");
+  const closeBtn = document.querySelector(".close-btn");
+
+  openModal.addEventListener("click", () => modalOverlay.style.display = "flex");
+  closeBtn.addEventListener("click", () => modalOverlay.style.display = "none");
+  modalOverlay.addEventListener("click", e => { if (e.target === modalOverlay) modalOverlay.style.display = "none"; });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") modalOverlay.style.display = "none"; });
+
+  // === curl 생성기 로직 ===
+  (function(){
+    const username=document.getElementById('username');
+    const password=document.getElementById('password');
+    const proxyList=document.getElementById('proxyList');
+    const endpoint=document.getElementById('endpoint');
+    const cmdsEl=document.getElementById('cmds');
+    const copyBtn=document.getElementById('copy');
+
+    function pad(n){return n<10?'0'+n:n;}
+    function yyyymmdd(d){return d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate());}
+    function tailForFilename(host){
+      if(!host)return'ip';
+      try{
+        let h=host.trim().replace(/^https?:\/\//i,'').replace(/\/.*$/,'');
+        if(h.includes(':'))h=h.split(':')[0];
+        const parts=h.split('.');
+        const last=parts[parts.length-1];
+        if(/^\d+$/.test(last))return last;
+        return h.replace(/[^0-9a-zA-Z]/g,'_').slice(0,15)||'host';
+      }catch{return'ip';}
+    }
+    function parseHosts(raw){return raw.split(/[, \t\r\n]+/).map(x=>x.trim()).filter(Boolean);}
+    function buildCommands(){
+      const u=username.value.trim(), p=password.value;
+      const ep=endpoint.value.trim()||'/sysinfo';
+      const epFinal=ep.startsWith('/')?ep:'/'+ep;
+      const hosts=parseHosts(proxyList.value);
+      const date=yyyymmdd(new Date());
+      const cmds=[];
+      hosts.forEach((h, idx)=>{
+        const tail=tailForFilename(h);
+        const filename=`sysinfo_${tail}_${date}.txt`;
+        const cred=(u||p)?`${u}:${p}`:'';
+        const credPart=cred?`-u ${cred} `:'';
+        const explorerPart=(idx===hosts.length-1)?" && explorer .":"";
+        cmds.push(`curl -k ${credPart}https://${h}:8082${epFinal} -o ${filename}${explorerPart}`);
+      });
+      return cmds;
+    }
+    function refresh(){
+      const cmds=buildCommands();
+      cmdsEl.textContent=cmds.length?cmds.join('\n'):'# IP/Host를 입력하세요';
+    }
+    [username,password,proxyList,endpoint].forEach(e=>e.addEventListener('input',refresh));
+    refresh();
+    copyBtn.onclick=async()=>{
+      try{
+        await navigator.clipboard.writeText(cmdsEl.textContent);
+        copyBtn.textContent='복사됨 ✓';
+        setTimeout(()=>copyBtn.textContent='전체 복사',1500);
+      }catch{alert('복사 실패');}
+    };
+  })();
+</script>
+
 
 </body>
 </html>
