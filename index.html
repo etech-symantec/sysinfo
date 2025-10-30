@@ -52,36 +52,34 @@
   justify-content: space-between;  /* 좌우 끝으로 배치 */
   align-items: center;
   margin: -10px 0;
-}
+  }
 
-#fileInput {
-  flex: 1;
-  max-width: 300px; /* 필요 시 조정 */
-}
+  #fileInput {
+    flex: 1;
+    max-width: 300px; /* 필요 시 조정 */
+  }
 
-#downloadBtn {
-  background: #1e3a5f;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  margin-left: 10px;
-}
-#downloadBtn:hover {
-  background: #294b7a;
-}
-
-
-.notice {
-  color: #999;
-  font-weight: 600;
-  margin-top: 4px;
-  margin-bottom: 12px;
-  text-align: left;
-}
-
+  #downloadBtn {
+    background: #1e3a5f;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-left: 10px;
+  }
   
+  #downloadBtn:hover {
+    background: #294b7a;
+  }
+  
+  .notice {
+    color: #999;
+    font-weight: 600;
+    margin-top: 4px;
+    margin-bottom: 12px;
+    text-align: left;
+  }
   
   body {
     font-family: "Segoe UI", Arial, sans-serif;
@@ -105,6 +103,7 @@
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     z-index: 1001;
   }
+  
   #openModal:hover { background: #1e40af; }
 
   /* === 모달 오버레이 === */
@@ -158,6 +157,7 @@
     margin: 30px;
     padding: 28px 32px;
   }
+  
   h2 {
     margin: 0 0 18px 0;
     font-size: 20px;
@@ -165,6 +165,7 @@
     border-bottom: 2px solid #e0e7ff;
     padding-bottom: 6px;
   }
+  
   label { font-weight: 600; font-size: 13px; color: #374151; display: block; }
   input[type="text"], input[type="password"], textarea {
     padding: 9px 10px;
@@ -173,18 +174,21 @@
     font-size: 14px;
     background-color: #fafafa;
   }
+  
   input:focus, textarea:focus {
     outline: none;
     border-color: #2563eb;
     box-shadow: 0 0 0 2px rgba(37,99,235,0.2);
     background-color: #fff;
   }
+  
   .input-row {
     display: flex;
     gap: 14px;
     flex-wrap: wrap;
     margin-bottom: 16px;
   }
+  
   .w-sm { width: 100px; }
   .w-md { width: 140px; }
   textarea { width: 90%; min-height: 80px; resize: vertical; }
@@ -198,6 +202,7 @@
     overflow-x: auto;
     margin-top: 10px;
   }
+  
   button {
     background: #2563eb;
     border: none;
@@ -207,6 +212,7 @@
     cursor: pointer;
     font-weight: 600;
   }
+  
   button:hover { background: #1e40af; }
   .actions { margin-top: 12px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .note { font-size: 13px; color: #1e3a8a; background: #eff6ff; border: 1px solid #bfdbfe; padding: 6px 10px; border-radius: 6px; }
@@ -297,10 +303,10 @@
             const match = (r) => text.match(r)?.[1]?.trim() || "-";
             const oknok = (v) => (v.match(/NOK/i) ? 'class="nok"' : "");
 
-    // -----------------------------
-    // ✅ General Info
-    // -----------------------------
-    const host = match(/appliance-name\s+"([\w\-]+)"/i);
+    // =======================================================================================
+    // 1. General Info
+    // =======================================================================================
+    const host = match(/appliance-name\s+"([\w\-\_\.\,\~\@\#\(\)\=\+\<\>\[\]]+)"/i);
     const model = match(/Model\s*:\s*([A-Za-z0-9\-]+)/i);
     const serial = match(/Serial\s*Number\s*:\s*([0-9A-Z]+)/i);
 
@@ -309,17 +315,17 @@
     const versionLine = text.match(/Version:\s*([^\n]+)/i);
     if (versionLine) sgos = versionLine[1].replace(/"/g, "").trim();
 
-    // ✅ HW/SW Uptime (엑셀 MID + SUBSTITUTE + IF)
+    // HW/SW Uptime (엑셀 MID + SUBSTITUTE + IF)
     let uptimeHW = "-";
     let uptimeSW = "-";
     let uptime = "-";
 
     // Match "hardware rebooted 891 days 15 hours ago"
-    const hwMatch = text.match(/hardware rebooted\s+(\d+\s+days\,\s+\d+\s+hours)/i);
+    const hwMatch = text.match(/hardware rebooted\s+([\d\s\,\w]+hours)\,\s/i);
     if (hwMatch) uptimeHW = hwMatch[1].trim();
 
     // Match "software rebooted 891 days 15 hours ago"
-    const swMatch = text.match(/softdware rebooted\s+(\d+\s+days\,\s+\d+\s+hours)/i);
+    const swMatch = text.match(/softdware rebooted\s+([\d\s\,\w]+hours)\,\s/i);
     if (swMatch) uptimeSW = swMatch[1].trim();
 
     // Combine SW / HW values
@@ -332,39 +338,45 @@
     const cpuTemp = match(/CPU\s*\d*\s*temperature\s*([0-9]+(?:\.[0-9]+)?)\s*degrees\s/i);
     const sysTemp = match(/System center temperature\s*([0-9]+(?:\.[0-9]+)?)\s*degrees\s/i);
     
+    
+    
+    
+    // ---------------------------------------------------------------------------------------
+    // Deployment Mode
+    // ---------------------------------------------------------------------------------------
     // Explicit과 External 트래픽 비교
-function sumBytesByKeys(keys) {
-  let sum = 0;
-  for (const key of keys) {
-    const match = text.match(new RegExp(`${key}[^\n]*:\\s*([0-9\\s]+)`, "i"));
-    if (match) {
-      const nums = match[1].trim().split(/\s+/).map(Number).filter(n => !isNaN(n));
-      if (nums.length > 0) sum += nums.reduce((a, b) => a + b, 0);
+    function sumBytesByKeys(keys) {
+      let sum = 0;
+      for (const key of keys) {
+        const match = text.match(new RegExp(`${key}[^\n]*:\\s*([0-9\\s]+)`, "i"));
+        if (match) {
+          const nums = match[1].trim().split(/\s+/).map(Number).filter(n => !isNaN(n));
+          if (nums.length > 0) sum += nums.reduce((a, b) => a + b, 0);
+        }
+      }
+      return sum;
     }
-  }
-  return sum;
-}
 
-// Explicit과 External의 키워드
-const explicitKeys = [
-  "svc:service:HTTP:Explicit HTTP:intercepted_client_bytes~monthly"
-];
-const externalKeys = [
-  "svc:service:HTTP:External HTTP:intercepted_client_bytes~monthly"
-];
+    // Explicit과 External의 키워드
+    const explicitKeys = [
+      "svc:service:HTTP:Explicit HTTP:intercepted_client_bytes~monthly"
+    ];
+    const externalKeys = [
+      "svc:service:HTTP:External HTTP:intercepted_client_bytes~monthly"
+    ];
 
-// 합계 계산
-const explicitBytes = sumBytesByKeys(explicitKeys);
-const externalBytes = sumBytesByKeys(externalKeys);
+    // 합계 계산
+    const explicitBytes = sumBytesByKeys(explicitKeys);
+    const externalBytes = sumBytesByKeys(externalKeys);
 
-// 더 큰 값을 가진 항목을 표기
-const deploymentMode = explicitBytes > externalBytes ? "Explicit" : "TP";
+    // 더 큰 값을 가진 항목을 표기
+    const deploymentMode = explicitBytes > externalBytes ? "Explicit" : "TP";
 
 
-    // -----------------------------
-    // Hardware & Network
-    // -----------------------------
-    // ✅ CPU Usage (Now)
+    // =======================================================================================
+    // 2.  Hardware & Network
+    // =======================================================================================
+    // CPU Usage (Now)
     let cpuNow = "-";
     const cpuHourlyMatch = text.match(/system:cpu-usage~hourly[^\n]*:\s*([0-9\s]+)/i);
     if (cpuHourlyMatch) {
@@ -372,7 +384,7 @@ const deploymentMode = explicitBytes > externalBytes ? "Explicit" : "TP";
       cpuNow = nums_cpu.at(-1) + "%"; // 마지막 값
     }
 
-    // ✅ CPU Peak
+    // CPU Peak
     let cpuPeak = "-";
     const cpuDailyMatch = text.match(/system:cpu-usage~daily[^\n]*:\s*([0-9\s]+)/i);
     if (cpuHourlyMatch || cpuDailyMatch) {
@@ -382,9 +394,7 @@ const deploymentMode = explicitBytes > externalBytes ? "Explicit" : "TP";
       cpuPeak = peak_cpu + "%";
     }
     
-    
-    
-    // ✅ MEM Usage (Now)
+    // MEM Usage (Now)
     let memNow = "-";
     const memHourlyMatch = text.match(/system:memory-usage~hourly[^\n]*:\s*([0-9\s]+)/i);
     if (memHourlyMatch) {
@@ -392,7 +402,7 @@ const deploymentMode = explicitBytes > externalBytes ? "Explicit" : "TP";
       memNow = nums_mem.at(-1) + "%"; // 마지막 값
     }
 
-    // ✅ MEM Peak
+    // MEM Peak
     let memPeak = "-";
     const memDailyMatch = text.match(/system:memory-usage~daily[^\n]*:\s*([0-9\s]+)/i);
     if (memHourlyMatch || memDailyMatch) {
@@ -402,7 +412,7 @@ const deploymentMode = explicitBytes > externalBytes ? "Explicit" : "TP";
       memPeak = peak_mem + "%";
     }
     
-    // ✅ Disk Status 종합 판단
+    // Disk Status 종합 판단
     let disk = "-";
     const diskBlocks = text.match(/Stat:\s*Disk\s+\d+\s+Status[\s\S]*?(?=Stat:|$)/gi);
     if (diskBlocks && diskBlocks.length > 0) {
@@ -410,10 +420,7 @@ const deploymentMode = explicitBytes > externalBytes ? "Explicit" : "TP";
       disk = allOK ? "OK" : "NOK";
     }
 
-
-
-
-    // ✅ Tx / Rx Rate 계산
+    // Tx / Rx Rate 계산
     let txRate = "-";
     let rxRate = "-";
 
@@ -457,8 +464,7 @@ const deploymentMode = explicitBytes > externalBytes ? "Explicit" : "TP";
     rxRate = calcRate("received");
 
     
-    
-    // ✅ Users (엑셀의 @getmax 로직 기반)
+    // Users (엑셀의 @getmax 로직 기반)
     let users = "-";
 
     const usersMatch = text.match(/users:current~monthly[^\n]*:\s*([0-9\s]+)/i);
@@ -470,8 +476,7 @@ const deploymentMode = explicitBytes > externalBytes ? "Explicit" : "TP";
       }
     }
 
-
-    // ✅ HTTPS Sessions (엑셀의 @getmax 로직 기반)
+    // HTTPS Sessions (엑셀의 @getmax 로직 기반)
     let httpsSessions = "-";
 
     const sessionMatch = text.match(/http:client-volume~monthly[^\n]*:\s*([0-9\s]+)/i);
@@ -486,7 +491,7 @@ const deploymentMode = explicitBytes > externalBytes ? "Explicit" : "TP";
     
 
     //-------------------------------------------------------------
-    // ✅ ① Total Traffic (svc:ds:proxy:intercepted_client_bytes~monthly)
+    // Total Traffic (svc:ds:proxy:intercepted_client_bytes~monthly)
     //-------------------------------------------------------------
     let totalTraffic = "-";
 
@@ -517,7 +522,7 @@ const deploymentMode = explicitBytes > externalBytes ? "Explicit" : "TP";
     }
 
     //-------------------------------------------------------------
-    // ✅ Peak Traffic (monthly/daily/hourly 단위별 변환 포함)
+    // Peak Traffic (monthly/daily/hourly 단위별 변환 포함)
     //-------------------------------------------------------------
     let peakTraffic = "-";
     let peakMbps = 0;
@@ -552,7 +557,7 @@ const deploymentMode = explicitBytes > externalBytes ? "Explicit" : "TP";
 
 
     //-------------------------------------------------------------
-    // ✅ HTTP% + HTTPS% 계산 (엑셀 Sysinfo_1 동일)
+    // HTTP% + HTTPS% 계산 (엑셀 Sysinfo_1 동일)
     //-------------------------------------------------------------
 
     // 안전한 키워드 매칭 함수 (공백/특수문자 대응)
@@ -575,7 +580,7 @@ const deploymentMode = explicitBytes > externalBytes ? "Explicit" : "TP";
     }
 
     //------------------------
-    // ✅ HTTP% 계산
+    // HTTP% 계산
     //------------------------
     let httpPercent = "-";
 
@@ -597,7 +602,7 @@ const deploymentMode = explicitBytes > externalBytes ? "Explicit" : "TP";
     }
 
     //------------------------
-    // ✅ HTTPS% 계산
+    // HTTPS% 계산
     //------------------------
     let httpsPercent = "-";
 
@@ -625,7 +630,7 @@ const deploymentMode = explicitBytes > externalBytes ? "Explicit" : "TP";
     }
 
     //-------------------------------------------------------------
-    // ✅ Savings% 계산 (엑셀 Sysinfo_1 동일)
+    // Savings% 계산 (엑셀 Sysinfo_1 동일)
     //-------------------------------------------------------------
     let savingsPercent = "-";
 
@@ -643,10 +648,9 @@ const deploymentMode = explicitBytes > externalBytes ? "Explicit" : "TP";
       savingsPercent = `${ratio.toFixed(1)}%`;
     }
 
-
-    // -----------------------------
-    // Proxy Features
-    // -----------------------------
+	// =======================================================================================
+    // 3. Proxy Features
+    // =======================================================================================
     // 날짜 포맷을 'yyyy. mm. dd.' 형식으로 변환하는 함수
     function formatDate(dateString) {
       const date = new Date(dateString);
@@ -659,46 +663,60 @@ const deploymentMode = explicitBytes > externalBytes ? "Explicit" : "TP";
 
     // 'Licensed Until:' 키워드에서 날짜 추출
     const licenseMatch = text.match(/Licensed Until:[\s\,\w]*\s(\d{1,2}\s\w{3}\s\d{4})\s/i);
-    let licenseDate = "-";
+    let licenseDate = "정보 없음";
 
     if (licenseMatch) {
       // 날짜 포맷 변환
       licenseDate = formatDate(licenseMatch[1]);
     }
-
-
     
-    
-    // 데이터 검증 함수
+    // Web Filtering Database 확인
     function getClosestDate(text) {
-      // 키워드에 해당하는 날짜 추출 패턴
-      const datePattern = /\d{1,2}\s\w{3}\s\d{4}/g;
+      let dataValid = "-";
+      let urlFilter = "-";
 
-      // 각 키워드에서 날짜를 추출
-      const dataValidMatch = text.match(/Data Valid Until:[^\n]*?(\d{1,2}\s\w{3}\s\d{4})/);
-      const blueCoatDownloadMatch = text.match(/Blue Coat download at:[^\n]*?(\d{1,2}\s\w{3}\s\d{4})/);
-      const differentialUpdateMatch = text.match(/Differential update[^\n]*?(\d{1,2}\s\w{3}\s\d{4})/);
-      const timeMatch = text.match(/Time:\s*(\d{1,2}\s\w{3}\s\d{4})/); // Time: 키워드 찾기
-
-      // 날짜들을 모은 배열
-      const dates = [];
-      if (dataValidMatch) dates.push(new Date(dataValidMatch[1]));
-      if (blueCoatDownloadMatch) dates.push(new Date(blueCoatDownloadMatch[1]));
-      if (differentialUpdateMatch) dates.push(new Date(differentialUpdateMatch[1]));
-      if (timeMatch) dates.push(new Date(timeMatch[1])); // Time: 날짜 추가
-
-      // 날짜들이 존재하면, 가장 최근 날짜를 반환
-      let dataValid = "-"; 
-      if (dates.length > 0) {
-        const maxDate = new Date(Math.max(...dates));
-        dataValid = maxDate.toLocaleDateString();
+      // ✅ 1️⃣ Data Source 구분
+      const dataSourceMatch = text.match(/Data Source:\s*(Intelligence Services|WebFilter)/i);
+      if (dataSourceMatch) {
+        if (/Intelligence Services/i.test(dataSourceMatch[1])) urlFilter = "BCIS";
+        else if (/WebFilter/i.test(dataSourceMatch[1])) urlFilter = "BCWF";
       }
 
-      // URL 필터 값 설정
-      const urlFilter = dataValid === timeMatch ? "BCIS" : "BCWF"; 
+      // ✅ 2️⃣ 날짜 추출
+      if (urlFilter === "BCIS") {
+        // BCIS → 기존 로직 사용
+        const dates = [];
+        const dataValidMatch = text.match(/Data Valid Until:[^\n]*?(\d{1,2}\s\w{3}\s\d{4})/);
+        const blueCoatDownloadMatch = text.match(/Blue Coat download at:[^\n]*?(\d{1,2}\s\w{3}\s\d{4})/);
+        const differentialUpdateMatch = text.match(/Differential update[^\n]*?(\d{1,2}\s\w{3}\s\d{4})/);
+        const timeMatch = text.match(/Time:\s*(\d{1,2}\s\w{3}\s\d{4})/);
 
-      return { dataValid, urlFilter }; 
+        if (dataValidMatch) dates.push(new Date(dataValidMatch[1]));
+        if (blueCoatDownloadMatch) dates.push(new Date(blueCoatDownloadMatch[1]));
+        if (differentialUpdateMatch) dates.push(new Date(differentialUpdateMatch[1]));
+        if (timeMatch) dates.push(new Date(timeMatch[1]));
+
+        if (dates.length > 0) {
+          const maxDate = new Date(Math.max(...dates));
+          dataValid = maxDate.toLocaleDateString();
+        }
+      }
+
+      else if (urlFilter === "BCWF") {
+        // BCWF → "Database expires:" 줄만 사용
+        const dbExpireMatch = text.match(/Database expires:\s*([A-Za-z]{3},\s*\d{1,2}\s*[A-Za-z]{3}\s*\d{4})/i);
+        if (dbExpireMatch) {
+          const dateStr = dbExpireMatch[1].replace(/,/g, "").trim(); // Tue, 19 Jan 2038 → Tue 19 Jan 2038
+          const parsed = new Date(dateStr);
+          if (!isNaN(parsed)) {
+            dataValid = parsed.toLocaleDateString();
+          }
+        }
+      }
+
+      return { dataValid, urlFilter };
     }
+
 
     // 함수 사용
     const { dataValid, urlFilter } = getClosestDate(text);
@@ -708,7 +726,7 @@ const deploymentMode = explicitBytes > externalBytes ? "Explicit" : "TP";
     const localDBMatch = text.match(/Local database download at:\s*(\d{4}\/\d{2}\/\d{2})\s/i);
 
     let localDBDate = "-";  // 기본값
-
+	
     if (localDBMatch) {
       // 날짜 문자열을 yyyy. mm. dd. 형식으로 변환
       const rawDate = localDBMatch[1];  // 2025/07/28
@@ -755,12 +773,11 @@ const deploymentMode = explicitBytes > externalBytes ? "Explicit" : "TP";
 
     const etap = match(/client\.connection[\.\w\_]+tap\s*\(([\d\:]+)\)/i);
 
-
-    // -----------------------------
-    // Logging & Services
-    // -----------------------------
-    const icapReq = "만드는 중";
-	const icapResp = "만드는 중";
+	// =======================================================================================
+    // 4. Logging & Services
+    // =======================================================================================
+    const icapReq = "귀찮아서";
+	const icapResp = "아직 안만듦";
     
     
     // Title: Access Log (main) Statistics 키워드가 포함된 줄 찾기
@@ -843,25 +860,53 @@ const deploymentMode = explicitBytes > externalBytes ? "Explicit" : "TP";
   };
 
     
-    
-    // === 결과를 resolve로 반환 ===
+    // =======================================================================================
+    // 결과를 resolve로 반환
+    // =======================================================================================
             resolve({
               name: file.name,
               section1: `<tr>
-                  <td>${host}</td><td>${model}</td><td>${serial}</td>
-                  <td>${sgos}</td><td>${uptime}</td><td>${cpuTemp ? cpuTemp+"°C" : "-"}</td><td>${sysTemp ? sysTemp+"°C" : "-"}</td><td>${deploymentMode}</td>
+                  <td>${host}</td><td>${model}</td>
+                  <td>${serial}</td>
+                  <td>${sgos}</td>
+                  <td>${uptime}</td>
+                  <td>${cpuTemp ? cpuTemp+"°C" : "-"}</td>
+                  <td>${sysTemp ? sysTemp+"°C" : "-"}</td>
+                  <td>${deploymentMode}</td>
                 </tr>`,
               section2: `<tr>
-                  <td>${cpuNow} / ${cpuPeak}</td><td>${memNow} / ${memPeak}</td>
+                  <td>${cpuNow} / ${cpuPeak}</td>
+                  <td>${memNow} / ${memPeak}</td>
                   <td ${oknok(disk)}>${disk}</td>
-          <td>${txRate}</td><td>${rxRate}</td><td>${users}</td><td>${httpsSessions}</td>
-                  <td>${totalTraffic}</td><td>${peakTraffic}</td><td>${httpPercent}</td><td>${httpsPercent}</td><td>${savingsPercent}</td>
+                  <td>${txRate}</td>
+                  <td>${rxRate}</td>
+                  <td>${users}</td>
+                  <td>${httpsSessions}</td>
+                  <td>${totalTraffic}</td>
+                  <td>${peakTraffic}</td>
+                  <td>${httpPercent}</td>
+                  <td>${httpsPercent}</td>
+                  <td>${savingsPercent}</td>
                 </tr>`,
-              section3: `<tr><td>${licenseDate} (${getDateDiff(licenseDate)}일)</td><td>${urlFilter} / ${dataValid} (${getDateDiff(dataValid)}일)</td>
-          <td>${localDBDate} (${getDateDiff(localDBDate)}일)</td><td>${webpulse}</td><td>${appProtect}</td>
-          <td>${appClass}</td><td>${auth}</td><td>${etap}</td></tr>`,
-              section4: `<tr><td>${icapReq}</td><td>${icapResp}</td><td>${httpLog}MB</td>
-          <td>${httpsLog}MB</td><td>${Logbackup}</td><td>${syslogStatus}</td><td>${coreImage}</td></tr>`
+              section3: `<tr>
+                  <td>${licenseDate} (${getDateDiff(licenseDate)}일)</td>
+                  <td>${urlFilter} / ${dataValid} (${getDateDiff(dataValid)}일)</td>
+                  <td>${localDBDate} (${getDateDiff(localDBDate)}일)</td>
+                  <td>${webpulse}</td>
+                  <td>${appProtect}</td>
+                  <td>${appClass}</td>
+                  <td>${auth}</td>
+                  <td>${etap}</td>
+                </tr>`,
+              section4: `<tr>
+                  <td>${icapReq}</td>
+                  <td>${icapResp}</td>
+                  <td>${httpLog}MB</td>
+                  <td>${httpsLog}MB</td>
+                  <td>${Logbackup}</td>
+                  <td>${syslogStatus}</td>
+                  <td>${coreImage}</td>
+                </tr>`
             });
           };
           reader.readAsText(file);
@@ -874,8 +919,11 @@ const deploymentMode = explicitBytes > externalBytes ? "Explicit" : "TP";
     const s2 = results.map((r) => r.section2).join("");
     const s3 = results.map((r) => r.section3).join("");
     const s4 = results.map((r) => r.section4).join("");
+    
+    const sanitize = (s) => s.replace(/\bNaN\b/g, "-").replace(/undefined|null/gi, "-");
 
-    document.getElementById("report").innerHTML += `
+
+    document.getElementById("report").innerHTML += sanitize(`
       <div class="section">
         <div class="section-header">① General Information & Configuration Backup</div>
         <table>
@@ -937,7 +985,7 @@ const deploymentMode = explicitBytes > externalBytes ? "Explicit" : "TP";
           	<th>WebPulse</th>
             <th>App Protect</th>
             <th>App Class</th>
-            <th>Auth</th>
+            <th>Auth (AD)</th>
             <th>eTap</th>
   		  </tr>
           ${s3}
@@ -963,36 +1011,36 @@ const deploymentMode = explicitBytes > externalBytes ? "Explicit" : "TP";
           </tr>
           ${s4}
         </table>
-      </div>`;
+      </div>`);
   });
   
   
-  // ✅ HTML 다운로드 버튼 기능
-document.getElementById("downloadBtn").addEventListener("click", function () {
-  // 현재 페이지 HTML 전체를 Blob으로 저장
-  const fullHTML = document.documentElement.outerHTML;
-  const blob = new Blob([fullHTML], { type: "text/html" });
+  // =======================================================================================
+  // HTML 다운로드 버튼 기능
+  // =======================================================================================
+  document.getElementById("downloadBtn").addEventListener("click", function () {
+    // 현재 페이지 HTML 전체를 Blob으로 저장
+    const fullHTML = document.documentElement.outerHTML;
+    const blob = new Blob([fullHTML], { type: "text/html" });
 
-  // 오늘 날짜 기반 파일명
-  const date = new Date();
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const dd = String(date.getDate()).padStart(2, "0");
-  const fileName = `ProxySG_Report_${yyyy}${mm}${dd}.html`;
+    // 오늘 날짜 기반 파일명
+    const date = new Date();
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
+    const fileName = `ProxySG_Report_${yyyy}${mm}${dd}.html`;
 
-  // 다운로드 링크 생성 및 실행
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = fileName;
-  a.click();
+    // 다운로드 링크 생성 및 실행
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = fileName;
+    a.click();
 
-  // 메모리 해제
-  URL.revokeObjectURL(a.href);
-});
+    // 메모리 해제
+    URL.revokeObjectURL(a.href);
+  });
 
-</script>
-
-
+  </script>
 
 
 <!-- === 모달 트리거 버튼 === -->
