@@ -1,11 +1,18 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dongle&display=swap" rel="stylesheet">
 <meta charset="UTF-8">
-<title>ProxySG Auto Sysinfo Report</title>
+<title>ProxySG Sysinfo 분석</title>
 <style>
   body { font-family: "Segoe UI", Arial, sans-serif; background: #f5f7fa; margin: 20px; color:#333; }
-	
+  .dongle-regular {
+    font-family: "Dongle", sans-serif;
+    font-weight: 400;
+    font-style: normal;
+  }
    /* 🔹 상단 네비게이션 버튼 */
   .top-nav {
     display: flex;
@@ -46,28 +53,32 @@
   }
 
   .title-left {
-    display: flex;
-    flex-direction: column; /* 제목과 by 줄을 세로로 배치 */
+    font-size: 1.6em;                   /* 제목 크게 */
+    line-height: 0.7;                   /* 줄 간격 줄이기 */
+    margin-bottom: 0;                   /* 아래 여백 제거 */
   }
 
   .subtitle {
-    font-size: 0.7em; /* 절반 크기 */
+    font-size: 0.7em;
     font-weight: normal;
     color: #bcd0f7;
-    opacity: 0.9;     /* 살짝 연하게 */
+    opacity: 0.9;
+    margin-top: 2px;                    /* 제목과의 여백 최소화 */
+    display: block;                     /* 줄바꿈 확실히 적용 */
   }
+  
   .date-container {
     text-align: right;
     line-height: 1.2;
   }
 
   .version {
-    font-size: 14px;
+    font-size: 24px;
     color: #bcd0f7; /* 회색-파랑 톤으로 살짝 강조 */
     opacity: 0.9;     /* 살짝 연하게 */
   }
   .date-header {
-    font-size: 16px;
+    font-size: 20px;
     color: #fff;
     margin: 0;
   }
@@ -93,7 +104,7 @@
 
   #fileInput {
     flex: 1;
-    max-width: 300px; /* 필요 시 조정 */
+    max-width: 180px; /* 필요 시 조정 */
   }
 
   #downloadBtn {
@@ -111,11 +122,37 @@
   }
   
   .notice {
-    color: #999;
-    font-weight: 600;
-    margin-top: 4px;
-    margin-bottom: 12px;
-    text-align: left;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 150px auto;
+  }
+
+  .notice-box {
+    display: flex;
+    align-items: center;
+    background: linear-gradient(135deg, #e9eef8 0%, #f5f7fb 100%);
+    border: 1.5px solid #b0c4de;
+    border-radius: 20px;
+    padding: 15px 20px;
+    max-width: 680px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  }
+
+  .notice-icon {
+    font-size: 30px;
+    margin-right: 12px;
+    color: #1e3a5f;
+  }
+
+  .notice-text {
+    font-size: 14px;
+    color: #2b2b2b;
+    line-height: 1.6;
+  }
+
+  .notice-text strong {
+    color: #1e3a5f;
   }
   
   body {
@@ -254,6 +291,26 @@
   .actions { margin-top: 12px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .note { font-size: 13px; color: #1e3a8a; background: #eff6ff; border: 1px solid #bfdbfe; padding: 6px 10px; border-radius: 6px; }
   .badge { background: #e0e7ff; color: #1e3a8a; font-size: 12px; padding: 2px 6px; border-radius: 4px; margin-left: 6px; }
+  
+  /* 🧲 드래그 앤 드롭 영역 스타일 */
+  #dropZone {
+    margin-top: 18px;
+    padding: 10px;
+    border: 2px dashed #1e3a5f;
+    border-radius: 10px;
+    color: #1e3a5f;
+    text-align: center;
+    background: #f8fafc;
+    font-weight: 400;
+    transition: all 0.2s ease;
+  }
+  #dropZone.dragover {
+    background: #e0e7ff;
+    border-color: #2563eb;
+    color: #1e40af;
+  }
+  
+  
 </style>
 </head>
 <body>
@@ -263,28 +320,38 @@
   <a href="https://etech-symantec.github.io/trace" class="nav-btn">📄 Trace 분석</a>
 </div>
 	
-<h1>
+<h1 class="dongle-regular">
   <div class="title-left">
     ProxySG Auto Sysinfo Report<br>
     <span class="subtitle">by 이테크시스템</span>
   </div>
   <div class="date-container">
-    <div class="version">ver.2025.10.30.02</div><p>
+    <div class="version">ver.2025.10.31.01</div>
     <div class="date-header" id="today-date"></div>
   </div>
 </h1>
 
-
+<!-- 📂 파일 업로드 바 -->
 <div class="button-bar">
   <input type="file" id="fileInput" accept=".txt" multiple>
-  <button id="downloadBtn">💾 현재 페이지 HTML로 다운로드하기</button>
+  <!-- 🧲 드래그 앤 드롭 영역 -->
+  <div id="dropZone">⬆️ sysinfo 파일을 여기에 드래그해서 놓으세요.</div>
+  <button id="downloadBtn">💾 현재 페이지 HTML로 다운로드</button>
 </div>
 
-<!-- ✅ 안내 문구 추가 -->
+
+
+<!-- ✅ 안내 문구 (스타일 개선 버전) -->
 <div id="notice" class="notice">
-	<br>
-  ※ 특정 서버에 파일이 올라가지 않으며, HTML 파일 내에서만 처리되는 방식입니다.
+  <div class="notice-box">
+    <span class="notice-icon">🔒</span>
+    <div class="notice-text">
+      이 페이지는 <b>로컬 환경</b>에서만 작동하며, 파일이 외부 서버로 전송되지 않습니다.</b><br>
+      모든 처리는 <b>HTML 내부 스크립트</b>에서만 수행됩니다.
+    </div>
+  </div>
 </div>
+
 <div id="report"></div>
 
 
@@ -1084,8 +1151,45 @@
     // 메모리 해제
     URL.revokeObjectURL(a.href);
   });
+  
+  
+  
 
-  </script>
+</script>
+
+<script>
+  // === 드래그 앤 드롭 기능 추가 ===
+  const dropZone = document.getElementById("dropZone");
+
+  // 기본 이벤트 막기 + 드래그 시 스타일 변경
+  ["dragenter", "dragover"].forEach(eventName => {
+    dropZone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.add("dragover");
+    });
+  });
+
+  // 드래그 종료 시 스타일 복구
+  ["dragleave", "drop"].forEach(eventName => {
+    dropZone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.remove("dragover");
+    });
+  });
+
+  // 드롭 시 파일 처리
+  dropZone.addEventListener("drop", (e) => {
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      // input의 change 이벤트와 동일하게 실행
+      document.getElementById("fileInput").files = files;
+      const event = new Event("change");
+      document.getElementById("fileInput").dispatchEvent(event);
+    }
+  });
+</script>
 
 
 <!-- === 모달 트리거 버튼 === -->
