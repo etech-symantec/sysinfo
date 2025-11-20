@@ -80,13 +80,6 @@
   .notice-text strong {
     color: #1e3a5f;
   }
-  
-  body {
-    font-family: "Segoe UI", Arial, sans-serif;
-    background: #f3f4f6;
-    margin: 0;
-    padding: 6px 40px 10px 40px;
-  }
 
   /* === 모달 트리거 버튼 === */
   #openModal {
@@ -299,11 +292,6 @@
       return diffInDays
       
     }
-
-    // 날짜를 페이지에 표시
-    document.getElementById("today-date").innerHTML = `오늘 날짜: ${formattedDate}`;
-
-
 
     // ✅ 여러 파일 업로드 대응
     document.getElementById("fileInput").addEventListener("change", async function (e) {
