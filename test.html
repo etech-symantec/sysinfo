@@ -6,6 +6,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <meta charset="UTF-8">
 <title>ProxySG Sysinfo 분석</title>
 <style>
@@ -294,6 +295,116 @@
       
     }
 
+    // Chart.js로 실제 그래프를 그리는 함수. section6의 canvas들이 DOM에 삽입된 뒤에 호출해야 한다.
+    function renderTrendCharts() {
+      const list = window.__sysinfoTrendCharts || [];
+      const fmtTick = (d) => {
+        const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+        const dd = String(d.getUTCDate()).padStart(2, "0");
+        const hh = String(d.getUTCHours()).padStart(2, "0");
+        const mi = String(d.getUTCMinutes()).padStart(2, "0");
+        return `${mm}/${dd} ${hh}:${mi}`;
+      };
+
+      list.forEach(({ idx, cpuSeries, memSeries, netSentMbps, netRecvMbps }) => {
+        // ── CPU/Memory 사용률(%) 차트 ──
+        const cpuMemCanvas = document.getElementById(`chart-cpumem-${idx}`);
+        if (cpuMemCanvas && (cpuSeries || memSeries)) {
+          const labelSource = (cpuSeries && memSeries)
+            ? (cpuSeries.values.length >= memSeries.values.length ? cpuSeries : memSeries)
+            : (cpuSeries || memSeries);
+          const n = labelSource.values.length;
+          const labels = labelSource.timestamps.slice(-n).map(fmtTick);
+          const datasets = [];
+          if (cpuSeries) {
+            datasets.push({
+              label: "CPU 사용률(%)",
+              data: cpuSeries.values.slice(-n),
+              borderColor: "#2563eb",
+              backgroundColor: "rgba(37,99,235,0.08)",
+              tension: 0.25,
+              pointRadius: 0,
+              borderWidth: 2,
+            });
+          }
+          if (memSeries) {
+            datasets.push({
+              label: "메모리 사용률(%)",
+              data: memSeries.values.slice(-n),
+              borderColor: "#16a34a",
+              backgroundColor: "rgba(22,163,74,0.08)",
+              tension: 0.25,
+              pointRadius: 0,
+              borderWidth: 2,
+            });
+          }
+          const chart = new Chart(cpuMemCanvas.getContext("2d"), {
+            type: "line",
+            data: { labels, datasets },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              interaction: { mode: "index", intersect: false },
+              scales: {
+                y: { min: 0, max: 100, title: { display: true, text: "사용률(%)" } },
+                x: { ticks: { maxTicksLimit: 12, autoSkip: true } },
+              },
+              plugins: { legend: { position: "top" } },
+            },
+          });
+          window.__sysinfoChartInstances.push(chart);
+        }
+
+        // ── 네트워크 Tx/Rx 처리량(Mbps) 차트 ──
+        const netCanvas = document.getElementById(`chart-net-${idx}`);
+        if (netCanvas && (netSentMbps || netRecvMbps)) {
+          const labelSource = (netSentMbps && netRecvMbps)
+            ? (netSentMbps.values.length >= netRecvMbps.values.length ? netSentMbps : netRecvMbps)
+            : (netSentMbps || netRecvMbps);
+          const n = labelSource.values.length;
+          const labels = labelSource.timestamps.slice(-n).map(fmtTick);
+          const datasets = [];
+          if (netSentMbps) {
+            datasets.push({
+              label: "Tx (송신, Mbps)",
+              data: netSentMbps.values.slice(-n).map(v => Number(v.toFixed(2))),
+              borderColor: "#ea580c",
+              backgroundColor: "rgba(234,88,12,0.08)",
+              tension: 0.25,
+              pointRadius: 0,
+              borderWidth: 2,
+            });
+          }
+          if (netRecvMbps) {
+            datasets.push({
+              label: "Rx (수신, Mbps)",
+              data: netRecvMbps.values.slice(-n).map(v => Number(v.toFixed(2))),
+              borderColor: "#7c3aed",
+              backgroundColor: "rgba(124,58,237,0.08)",
+              tension: 0.25,
+              pointRadius: 0,
+              borderWidth: 2,
+            });
+          }
+          const chart = new Chart(netCanvas.getContext("2d"), {
+            type: "line",
+            data: { labels, datasets },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              interaction: { mode: "index", intersect: false },
+              scales: {
+                y: { min: 0, title: { display: true, text: "Mbps" } },
+                x: { ticks: { maxTicksLimit: 12, autoSkip: true } },
+              },
+              plugins: { legend: { position: "top" } },
+            },
+          });
+          window.__sysinfoChartInstances.push(chart);
+        }
+      });
+    }
+
     // ✅ 여러 파일 업로드 대응
     document.getElementById("fileInput").addEventListener("change", async function (e) {
     
@@ -311,9 +422,17 @@
         <ul style="margin:17px 10px;">${fileListHTML}<br></ul>
       </div>`;
 
+    // 이전 업로드에서 그려둔 Chart.js 인스턴스/트렌드 데이터를 정리한다
+    // (재업로드 시 같은 canvas id에 겹쳐 그려지거나 메모리 누수가 나는 것을 방지).
+    if (window.__sysinfoChartInstances) {
+      window.__sysinfoChartInstances.forEach(c => { try { c.destroy(); } catch (e) {} });
+    }
+    window.__sysinfoChartInstances = [];
+    window.__sysinfoTrendCharts = [];
+
     // Promise.all 로 모든 파일 처리
     const results = await Promise.all(
-      files.map((file) => {
+      files.map((file, fileIdx) => {
         return new Promise((resolve) => {
           const reader = new FileReader();
           reader.onload = function (ev) {
@@ -579,6 +698,114 @@
     }
 
     const section5 = buildDetailBlock(file.name);
+
+    // =======================================================================================
+    // 0-2. 트렌드(시계열) 데이터 추출 — CPU/메모리 사용률, 네트워크 처리량
+    //    sysinfo 라인 포맷: <key>~<granularity>@<날짜> UTC[offset](count, interval): v1 v2 v3 ...
+    //    이미 ②번 표에서 Now/Peak 값만 뽑아 쓰던 바로 그 시계열 원본을, 값 하나만
+    //    꺼내는 대신 전체 구간 + 타임스탬프까지 복원해서 그래프로 그린다.
+    // =======================================================================================
+    function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+
+    const MONTH_IDX = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
+    function parseSysinfoDate(s) {
+      const m = s.match(/^[A-Za-z]{3}, (\d{1,2}) ([A-Za-z]{3}) (\d{4}) (\d{2}):(\d{2}):(\d{2})$/);
+      if (!m) return null;
+      const [, day, mon, year, hh, mi, ss] = m;
+      if (!(mon in MONTH_IDX)) return null;
+      return new Date(Date.UTC(Number(year), MONTH_IDX[mon], Number(day), Number(hh), Number(mi), Number(ss)));
+    }
+
+    // key~granularity@date UTC[offset](count, interval): v1 v2 ... 라인 하나를 찾아
+    // {timestamps, values, interval, granularity}로 변환한다. 못 찾으면 null.
+    function parseSeriesLine(text, keyLiteral, granularity) {
+      const pattern = new RegExp(
+        "^" + escapeRegex(keyLiteral) + "~" + escapeRegex(granularity) + "@" +
+        "([A-Za-z]{3}, \\d{1,2} [A-Za-z]{3} \\d{4} \\d{2}:\\d{2}:\\d{2}) UTC" +
+        "\\[(\\d+)\\]\\((\\d+),\\s*(\\d+)\\):\\s*([0-9.\\s-]+)\\s*$",
+        "m"
+      );
+      const m = text.match(pattern);
+      if (!m) return null;
+      const endDate = parseSysinfoDate(m[1]);
+      if (!endDate) return null;
+      const interval = Number(m[4]);
+      const values = m[5].trim().split(/\s+/).map(Number).filter(v => !Number.isNaN(v));
+      const count = values.length;
+      if (!count) return null;
+      // j번째(과거→현재) 값의 시각 = endDate - interval * (count - 1 - j)
+      const timestamps = values.map((_, i) => new Date(endDate.getTime() - interval * 1000 * (count - 1 - i)));
+      return { timestamps, values, interval, granularity };
+    }
+
+    // 후보 granularity를 순서대로 시도해 먼저 찾아지는 것을 반환한다.
+    function parseSeriesAny(text, keyLiteral, granularities) {
+      for (const g of granularities) {
+        const r = parseSeriesLine(text, keyLiteral, g);
+        if (r) return r;
+      }
+      return null;
+    }
+
+    // CPU / Memory 사용률(%) 추이 — Now/Peak 계산에 쓰던 것과 동일한 granularity 우선순위(hourly → daily)
+    const cpuSeries = parseSeriesAny(text, "system:cpu-usage", ["hourly", "daily"]);
+    const memSeries = parseSeriesAny(text, "system:memory-usage", ["hourly", "daily"]);
+
+    // 네트워크 Tx/Rx 추이 — calcRate()와 동일한 방식(daily15minute)으로 후보 인터페이스를 순회해
+    // 평균 트래픽이 가장 큰 인터페이스 하나를 골라 그 인터페이스의 Tx/Rx 시계열을 사용한다.
+    function findBestTrafficInterface(text) {
+      let best = null, bestAvg = -1, bestSent = null, bestRecv = null;
+      for (let i = 0; i <= 4; i++) {
+        for (let j = 0; j <= 3; j++) {
+          const iface = `${i}:${j}`;
+          const sent = parseSeriesLine(text, `tcpip:interface:${iface}:bytes-sent`, "daily15minute");
+          const recv = parseSeriesLine(text, `tcpip:interface:${iface}:bytes-received`, "daily15minute");
+          if (!sent && !recv) continue;
+          const avgOf = (s) => s ? s.values.reduce((a, b) => a + b, 0) / s.values.length : 0;
+          const avg = avgOf(sent) + avgOf(recv);
+          if (avg > bestAvg) { bestAvg = avg; best = iface; bestSent = sent; bestRecv = recv; }
+        }
+      }
+      return best ? { iface: best, sent: bestSent, recv: bestRecv } : null;
+    }
+    const netTraffic = findBestTrafficInterface(text);
+
+    // byte(구간 합계) → Mbps(순간 전송률) 변환: bits = bytes*8, 구간(초)으로 나눔
+    function seriesToMbps(series) {
+      if (!series) return null;
+      return {
+        timestamps: series.timestamps,
+        values: series.values.map(v => (v * 8) / series.interval / 1_000_000),
+      };
+    }
+    const netSentMbps = netTraffic ? seriesToMbps(netTraffic.sent) : null;
+    const netRecvMbps = netTraffic ? seriesToMbps(netTraffic.recv) : null;
+
+    const hasCpuMemChart = !!(cpuSeries || memSeries);
+    const hasNetChart = !!(netSentMbps || netRecvMbps);
+
+    const section6 = (hasCpuMemChart || hasNetChart) ? `
+        <details style="margin:12px 0; background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px;" open>
+          <summary style="cursor:pointer; font-weight:bold; color:#1e3a5f;">📈 ${file.name} — 트렌드 그래프</summary>
+          <div style="margin-top:12px;">
+            ${hasCpuMemChart ? `
+            <h4 style="margin:14px 0 6px;color:#1e3a8a;">CPU / Memory 사용률 추이 (%)</h4>
+            <div style="position:relative; height:260px; max-width:900px;"><canvas id="chart-cpumem-${fileIdx}"></canvas></div>` : ""}
+            ${hasNetChart ? `
+            <h4 style="margin:14px 0 6px;color:#1e3a8a;">네트워크 처리량 추이 — Interface ${netTraffic ? netTraffic.iface : "-"} (Mbps)</h4>
+            <div style="position:relative; height:260px; max-width:900px;"><canvas id="chart-net-${fileIdx}"></canvas></div>` : ""}
+            ${(!hasCpuMemChart && !hasNetChart) ? '<p style="color:#888;">그래프로 그릴 수 있는 시계열 데이터를 찾지 못했습니다.</p>' : ""}
+          </div>
+        </details>` : "";
+
+    // 나중에 report DOM에 캔버스가 실제로 삽입된 뒤 Chart.js로 그리기 위해 전역 배열에 적재해둔다.
+    window.__sysinfoTrendCharts = window.__sysinfoTrendCharts || [];
+    window.__sysinfoTrendCharts.push({
+      idx: fileIdx,
+      cpuSeries, memSeries,
+      netSentMbps, netRecvMbps,
+      netIface: netTraffic ? netTraffic.iface : null,
+    });
 
     // =======================================================================================
     // 1. General Info
@@ -1184,7 +1411,8 @@
                   <td>${syslogStatus}</td>
                   <td>${coreImage}</td>
                 </tr>`,
-              section5: section5
+              section5: section5,
+              section6: section6
             });
           };
           reader.readAsText(file);
@@ -1198,6 +1426,7 @@
     const s3 = results.map((r) => r.section3).join("");
     const s4 = results.map((r) => r.section4).join("");
     const s5 = results.map((r) => r.section5).join("");
+    const s6 = results.map((r) => r.section6).join("");
     
     const sanitize = (s) => s.replace(/\bNaN\b/g, "-").replace(/undefined|null/gi, "-");
 
@@ -1297,7 +1526,17 @@
         <div style="padding:10px 14px;">
           ${s5}
         </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header">⑥ 트렌드 그래프 (파일별 · CPU/메모리 사용률, 네트워크 처리량 추이)</div>
+        <div style="padding:10px 14px;">
+          ${s6}
+        </div>
       </div>`);
+
+    // report의 innerHTML이 갱신되어 canvas들이 실제 DOM에 삽입된 뒤에 Chart.js로 그래프를 그린다.
+    renderTrendCharts();
   });
   
   
