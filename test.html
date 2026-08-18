@@ -1,0 +1,1483 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🌠%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://etech-symantec.github.io/style.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&display=swap" rel="stylesheet">
+<meta charset="UTF-8">
+<title>ProxySG Sysinfo 분석</title>
+<style>
+  .section { background: white; margin: 20px 0; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+  .section-header { background: #1e3a5f; color: white; padding: 6px 12px; border-radius: 8px 8px 0 0; font-weight: bold; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: center; font-size: 13px; }
+  th { background: #f0f2f5; font-weight: bold; }
+  .nok { background-color: #f9d6d6; }  /* 빨간색 배경 */
+  .yellow { background-color: #fff3cd; }  /* 노란색 */
+  .red { background-color: #f8d7da; }     /* 빨간색 */
+  .white { background-color: #f0f2f5; }     /* 기본 흰색 */
+  input[type=file] { margin: 15px 0; }
+  button { background:#1e3a5f; color:white; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; margin-top:10px; }
+  button:hover { background:#294b7a; }
+  
+  .button-bar {
+  display: flex;
+  justify-content: space-between;  /* 좌우 끝으로 배치 */
+  align-items: center;
+  margin: -10px 0;
+  }
+
+  #fileInput {
+    flex: 1;
+    max-width: 180px; /* 필요 시 조정 */
+  }
+
+  #downloadBtn {
+    background: #1e3a5f;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-left: 10px;
+  }
+  
+  #downloadBtn:hover {
+    background: #294b7a;
+  }
+  
+  .notice {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 150px auto;
+  }
+
+  .notice-box {
+    display: flex;
+    align-items: center;
+    background: linear-gradient(135deg, #e9eef8 0%, #f5f7fb 100%);
+    border: 1.5px solid #b0c4de;
+    border-radius: 20px;
+    padding: 15px 20px;
+    max-width: 680px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  }
+
+  .notice-icon {
+    font-size: 30px;
+    margin-right: 12px;
+    color: #1e3a5f;
+  }
+
+  .notice-text {
+    font-size: 14px;
+    color: #2b2b2b;
+    line-height: 1.6;
+  }
+
+  .notice-text strong {
+    color: #1e3a5f;
+  }
+
+  /* === 모달 트리거 버튼 === */
+  #openModal {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    background: #2563eb;
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    z-index: 1001;
+  }
+  
+  #openModal:hover { background: #1e40af; }
+
+  /* === 모달 오버레이 === */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.45);
+    backdrop-filter: blur(2px);
+    z-index: 999;
+    justify-content: center;
+    align-items: center;
+  }
+
+  /* === 모달 본체 === */
+  .modal {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    width: 90%;
+    max-width: 940px;
+    max-height: 90%;
+    overflow-y: auto;
+    position: relative;
+    animation: fadeIn .3s ease;
+  }
+
+  .close-btn {
+    position: absolute;
+    top: 8px;
+    right: 14px;
+    background: transparent;
+    color: #444;
+    font-size: 28px;
+    border: none;
+    cursor: pointer;
+    z-index: 1000;
+  }
+  .close-btn:hover { color: #000; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* === 기존 Sysinfo curl UI 스타일 (간소화 버전) === */
+  .container {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+    margin: 30px;
+    padding: 28px 32px;
+  }
+  
+  h2 {
+    margin: 0 0 18px 0;
+    font-size: 20px;
+    color: #1e3a8a;
+    border-bottom: 2px solid #e0e7ff;
+    padding-bottom: 6px;
+  }
+  
+  label { font-weight: 600; font-size: 13px; color: #374151; display: block; }
+  input[type="text"], input[type="password"], textarea {
+    padding: 9px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    font-size: 14px;
+    background-color: #fafafa;
+  }
+  
+  input:focus, textarea:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37,99,235,0.2);
+    background-color: #fff;
+  }
+  
+  .input-row {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  
+  .w-sm { width: 100px; }
+  .w-md { width: 140px; }
+  textarea { width: 90%; min-height: 80px; resize: vertical; }
+  pre {
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 12px;
+    border-radius: 10px;
+    min-height: 120px;
+    white-space: pre-wrap;
+    overflow-x: auto;
+    margin-top: 10px;
+  }
+  
+  button {
+    background: #2563eb;
+    border: none;
+    color: #fff;
+    padding: 9px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  
+  button:hover { background: #1e40af; }
+  .actions { margin-top: 12px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .note { font-size: 13px; color: #1e3a8a; background: #eff6ff; border: 1px solid #bfdbfe; padding: 6px 10px; border-radius: 6px; }
+  .badge { background: #e0e7ff; color: #1e3a8a; font-size: 12px; padding: 2px 6px; border-radius: 4px; margin-left: 6px; }
+  
+  /* 🧲 드래그 앤 드롭 영역 스타일 */
+  #dropZone {
+    margin-top: 18px;
+    padding: 10px;
+    border: 2px dashed #1e3a5f;
+    border-radius: 10px;
+    color: #1e3a5f;
+    text-align: center;
+    background: #f8fafc;
+    font-weight: 400;
+    transition: all 0.2s ease;
+  }
+  #dropZone.dragover {
+    background: #e0e7ff;
+    border-color: #2563eb;
+    color: #1e40af;
+  }
+  
+  
+</style>
+</head>
+<body>
+
+<!-- 공통 헤더 + 제목 + 버전 -->
+<script>
+  window.pageTitle = "ProxySG Sysinfo 분석";
+  window.pageVersion = "ver.2026.08.18.01";
+</script> 
+<script src="https://etech-symantec.github.io/header.js"></script>
+
+<!-- 📂 파일 업로드 바 -->
+<div class="button-bar">
+  <input type="file" id="fileInput" accept=".txt" multiple>
+  <!-- 🧲 드래그 앤 드롭 영역 -->
+  <div id="dropZone">⬆️ sysinfo 파일을 여기에 드래그해서 놓으세요.</div>
+  <button id="downloadBtn">💾 현재 페이지 HTML로 다운로드</button>
+</div>
+
+
+
+<!-- ✅ 안내 문구 (스타일 개선 버전) -->
+<div id="notice" class="notice">
+  <div class="notice-box">
+    <span class="notice-icon">🔒</span>
+    <div class="notice-text">
+      이 페이지는 <b>로컬 환경</b>에서만 작동하며, 파일이 외부 서버로 전송되지 않습니다.</b><br>
+      모든 처리는 <b>HTML 내부 스크립트</b>에서만 수행됩니다.
+    </div>
+  </div>
+</div>
+
+<div id="report"></div>
+
+
+<script>
+    // 오늘 날짜 구하기 (yyyy. mm. dd. 형식)
+    function formatDate(date) {
+      const year = date.getFullYear();
+      const month = (date.getMonth() + 1).toString().padStart(2, '0'); // 월은 0부터 시작하므로 +1
+      const day = date.getDate().toString().padStart(2, '0'); // 날짜 두 자릿수로 맞추기
+      return `${year}. ${month}. ${day}.`;
+    }
+
+    const today = new Date();
+    const formattedDate = formatDate(today);
+
+	
+    
+    //  날짜 차이 일수 계산기
+	function getDateDiff(dateString) {
+      const today = new Date();
+      const date = new Date(dateString);
+
+      // 날짜 차이 계산 (밀리초 단위)
+      const timeDiff = date - today;
+
+      // 날짜 차이를 일(day) 단위로 변환
+      const diffInDays = Number(Math.floor(timeDiff / (1000 * 3600 * 24)));
+      return diffInDays
+      
+    }
+
+    // ✅ 여러 파일 업로드 대응
+    document.getElementById("fileInput").addEventListener("change", async function (e) {
+    
+      // ✅ 파일 업로드 시 안내 문구 제거
+      document.getElementById("notice")?.remove();
+
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    
+    // 상단 업로드 목록 표시
+    const fileListHTML = files.map((f, i) => `<li>${i + 1}. ${f.name}</li>`).join("");
+    document.getElementById("report").innerHTML = `
+      <div class="section">
+        <div class="section-header">📂 정리된 sysinfo 파일 목록 (${files.length}개)</div>
+        <ul style="margin:17px 10px;">${fileListHTML}<br></ul>
+      </div>`;
+
+    // Promise.all 로 모든 파일 처리
+    const results = await Promise.all(
+      files.map((file) => {
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = function (ev) {
+            const text = ev.target.result;
+            const match = (r) => text.match(r)?.[1]?.trim() || "-";
+            const oknok = (v) => (v.match(/NOK/i) ? 'class="nok"' : "");
+
+    // =======================================================================================
+    // 0. sysinfo 파일 하나만으로 뽑아낼 수 있는 상세 진단 정보
+    //    (CPU Monitor / HTTP Worker Statistics / TCP·IP Statistics / Access Log Statistics)
+    //    ※ ping 모니터링, TCP Connections(8082 별도 페이지), CE/Statistics 디스크 캐시처럼
+    //      장비에 실시간 접속해야 하는 정보는 sysinfo 파일만으로는 얻을 수 없어 제외했다.
+    // =======================================================================================
+
+    // ── CPU Monitor: 코어별 사용률 + 컴포넌트(프로세스 그룹)별 사용률 ──────────────
+    function parseCpuMonitor(text) {
+      const secMatch = text.match(/CPU Monitor:([\s\S]*?)_{10,}/);
+      const block = secMatch ? secMatch[1] : "";
+      const lines = block.split("\n");
+      const cpuHeaderRe = /^\s*CPU\s+(\d+)\s+(\d+)%\s*$/;
+      const compRe = /^[ \t]+([A-Za-z][A-Za-z0-9_\-\/. ]*?)\s+(\d+)%\s*$/;
+
+      const perCpu = [];
+      let current = null;
+      for (const line of lines) {
+        const h = line.match(cpuHeaderRe);
+        if (h) {
+          if (current) perCpu.push(current);
+          current = { cpu: `CPU ${h[1]}`, total: Number(h[2]), components: [] };
+          continue;
+        }
+        if (current) {
+          const c = line.match(compRe);
+          if (c) current.components.push({ name: c[1].trim(), pct: Number(c[2]) });
+        }
+      }
+      if (current) perCpu.push(current);
+      if (!perCpu.length) return null;
+
+      const agg = {};
+      perCpu.forEach(cpu => cpu.components.forEach(c => {
+        (agg[c.name] ||= []).push(c.pct);
+      }));
+      const compAvg = Object.entries(agg).map(([name, vals]) => ({
+        name,
+        avg: vals.reduce((a, b) => a + b, 0) / vals.length,
+        max: Math.max(...vals),
+        samples: vals.length,
+      })).sort((a, b) => b.avg - a.avg);
+
+      return { perCpu, compAvg };
+    }
+
+    // ── HTTP Worker Statistics ("HTTP Worker Statistics" 표) ──────────────────────
+    // sysinfo 표에는 항상 아래 순서대로 28개의 "라벨: 숫자" 라인이 출력되므로,
+    // 순서(위→아래) 기반으로 그대로 대입한다. Highwater(역대 최댓값)와
+    // "idle time was..." 항목은 화면에서 제외한다.
+    const HTTP_WORKER_ITEMS = [
+      ["max_concurrent_client_workers", "Maximum acceptable concurrent client workers"],
+      ["client_workers_created", "Currently created client workers"],
+      ["http1_client_workers_active", "HTTP 1.x client workers currently active"],
+      ["http1_client_workers_active_highwater", "active Highwater"],
+      ["http1_client_workers_created_idle", "created (incl. idle persistent client workers)"],
+      ["http1_client_workers_created_idle_highwater", "created Highwater (incl. idle persistent client workers)"],
+      ["http2_client_connections_active", "HTTP 2 client connections currently active"],
+      ["http2_client_connections_active_highwater", "active Highwater"],
+      ["http2_client_connections_created_idle", "created (incl. idle connections)"],
+      ["http2_client_connections_created_idle_highwater", "created Highwater (incl. idle connections)"],
+      ["http2_client_streams_active", "HTTP 2 client streams currently active"],
+      ["http2_client_streams_active_highwater", "active Highwater"],
+      ["http1_server_workers_active", "HTTP 1.x server workers currently active"],
+      ["http1_server_workers_active_highwater", "active Highwater"],
+      ["http2_server_streams_active", "HTTP 2 server streams currently active"],
+      ["http2_server_streams_active_highwater", "active Highwater"],
+      ["http2_server_connections_active", "HTTP 2 server connections currently active"],
+      ["http2_server_connections_active_highwater", "active Highwater"],
+      ["http2_server_connections_created_idle", "created (incl. idle connections)"],
+      ["http2_server_connections_created_idle_highwater", "created Highwater (incl. idle connections)"],
+      ["http2_client_stream_contexts_created", "HTTP/2 client stream contexts currently created"],
+      ["http2_server_stream_contexts_created", "HTTP/2 server stream contexts currently created"],
+      ["persistent_client_conn_close_failed_idle_queue_empty", "Failed attempts to close persistent client conns (idle queue empty)"],
+      ["persistent_client_conn_closed_idle_lt_2s", "Persistent client conns closed, idle < 2s"],
+      ["persistent_client_conn_closed_idle_2_to_4s", "Persistent client conns closed, idle 2-4s"],
+      ["persistent_client_conn_closed_idle_gt_4s", "Persistent client conns closed, idle > 4s"],
+      ["server_persistent_conn_cache_max_size", "Max size of server-side persistent conn cache"],
+      ["server_persistent_conn_cache_current_entries", "Current entries in server-side persistent conn cache"],
+    ];
+
+    function extractColonNumberLines(block) {
+      const out = [];
+      const re = /^_*\s*([A-Za-z][^:\n]*?)\s*:\s*(-?[\d,]+)\s*$/;
+      for (const line of block.split("\n")) {
+        const m = line.match(re);
+        if (m) out.push([m[1].trim(), Number(m[2].replace(/,/g, ""))]);
+      }
+      return out;
+    }
+
+    function parseHttpWorkerStats(text) {
+      const m = text.match(/HTTP Worker Statistics\s*\n([\s\S]*?)(?:\n[ \t]*\r?\n|_{10,}|$)/);
+      if (!m) return null;
+      const pairs = extractColonNumberLines(m[1]);
+      if (!pairs.length) return null;
+
+      const result = [];
+      const len = Math.min(HTTP_WORKER_ITEMS.length, pairs.length);
+      for (let i = 0; i < len; i++) {
+        const [key, label] = HTTP_WORKER_ITEMS[i];
+        if (/Highwater/i.test(label) || /when idle time was/i.test(label)) continue;
+        result.push({ key, label, value: pairs[i][1] });
+      }
+      return result.length ? result : null;
+    }
+
+    // ── TCP/IP General / TCP Statistics ────────────────────────────────────────
+    const TCP_GENERAL_ITEMS = [
+      ["tcp_queue_entries", "Entries in TCP queue"],
+      ["syns_ignored_accept_regulation", "Number of SYNs ignored due to acceptance regulation"],
+      ["accept_regulations_high_cpu", "Number of accept regulations due to high CPU"],
+    ];
+    const TCP_STATS_ITEMS = [
+      ["embryonic_connections_dropped", "Embryonic connections dropped"],
+      ["connections_not_accepted_queue_full", "Connections not accepted because the queue was full"],
+      ["tcp_time_wait_queue_entries", "Entries in TCP time wait queue"],
+      ["packets_in_hold_queue", "Current number of packets in hold queue"],
+      ["embryonic_connections_dropped_queue_overflow", "Embryonic connections dropped due to queue overflow"],
+    ];
+
+    function tcpSectionBlock(text, header) {
+      const re = new RegExp(header.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*\\n([\\s\\S]*?)(?:\\n[ \\t]*\\n|_{10,}|$)");
+      const m = text.match(re);
+      return m ? m[1] : null;
+    }
+
+    function findLabelValue(block, labelSubstring) {
+      if (!block) return null;
+      const safe = labelSubstring.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const re = new RegExp(safe + "[^\\n]*?:?[ \\t]*(-?[\\d,]+)[^\\n]*$", "im");
+      const m = block.match(re);
+      return m ? Number(m[1].replace(/,/g, "")) : null;
+    }
+
+    function parseTcpStats(text) {
+      const generalBlock = tcpSectionBlock(text, "TCP/IP General Statistics");
+      const tcpBlock = tcpSectionBlock(text, "TCP/IP TCP Statistics");
+      if (!generalBlock && !tcpBlock) return null;
+
+      const general = TCP_GENERAL_ITEMS.map(([key, label]) => ({ key, label, value: findLabelValue(generalBlock, label) }));
+      const tcp = TCP_STATS_ITEMS.map(([key, label]) => ({ key, label, value: findLabelValue(tcpBlock, label) }));
+      return { general, tcp };
+    }
+
+    // ── Access Log Statistics (sysinfo에 반복 등장하는 "Access Log (xxx) Statistics" 블록) ──
+    // 예전 버전은 "제목 줄 + 37번째 줄" 같은 위치 하드코딩이라 sysinfo 버전이 바뀌면
+    // 깨지기 쉬웠다. AL_STATS_0007(현재 크기, byte)/AL_STATS_0009(최대 크기, MB)를
+    // 각 로그 타입 블록 안에서 직접 정규식으로 찾아, main/ssl뿐 아니라 존재하는
+    // 모든 로그 타입(streaming/dns 등)에 대해 자동으로 뽑는다.
+    function bytesToReadable(n) {
+      const units = [["TB", 1024 ** 4], ["GB", 1024 ** 3], ["MB", 1024 ** 2], ["KB", 1024]];
+      for (const [unit, size] of units) {
+        if (n >= size) return `${(n / size).toFixed(2)} ${unit}`;
+      }
+      return `${n.toFixed(0)} B`;
+    }
+
+    function parseAccessLogStats(text) {
+      const titleRe = /Title:\s*Access Log \(([^)]+)\) Statistics/gi;
+      const matches = [...text.matchAll(titleRe)];
+      if (!matches.length) return null;
+
+      const results = [];
+      for (let i = 0; i < matches.length; i++) {
+        const start = matches[i].index;
+        const end = i + 1 < matches.length ? matches[i + 1].index : text.length;
+        const block = text.slice(start, Math.min(end, start + 6000));
+        const sizeMatch = block.match(/\bAL_STATS_0007\b[ \t]+(\d+)/);
+        const maxMatch = block.match(/\bAL_STATS_0009\b[ \t]+(\d+)/);
+        const currentBytes = sizeMatch ? Number(sizeMatch[1]) : null;
+        const maxMB = maxMatch ? Number(maxMatch[1]) : null;
+        const maxBytes = maxMB != null ? maxMB * 1000 * 1000 : null; // AL_STATS_0009 단위: MB(1000진법)
+        const pct = (currentBytes != null && maxBytes) ? (currentBytes / maxBytes * 100) : null;
+        results.push({
+          type: matches[i][1].trim(),
+          currentLabel: currentBytes != null ? bytesToReadable(currentBytes) : "-",
+          maxLabel: maxBytes != null ? bytesToReadable(maxBytes) : "-",
+          pct,
+        });
+      }
+      return results;
+    }
+
+    const cpuMonitor = parseCpuMonitor(text);
+    const httpWorkerStats = parseHttpWorkerStats(text);
+    const tcpStats = parseTcpStats(text);
+    const accessLogStats = parseAccessLogStats(text);
+
+    // 사용률(%)에 따른 색상 클래스 (기존 nok/yellow/red 스타일 재사용)
+    function pctClass(pct) {
+      if (pct == null) return "";
+      if (pct >= 90) return 'class="red"';
+      if (pct >= 70) return 'class="yellow"';
+      return "";
+    }
+
+    // ── 파일별 상세 진단 정보 블록(HTML) 생성 ──────────────────────────────────
+    function buildDetailBlock(fileName) {
+      let cpuHtml = '<p style="padding:8px 10px;color:#888;">CPU Monitor 데이터를 찾지 못했습니다.</p>';
+      if (cpuMonitor) {
+        const coreRows = cpuMonitor.perCpu.map(c =>
+          `<tr><td>${c.cpu}</td><td ${pctClass(c.total)}>${c.total}%</td></tr>`
+        ).join("");
+        const compRows = cpuMonitor.compAvg.slice(0, 8).map(c =>
+          `<tr><td>${c.name}</td><td>${c.avg.toFixed(1)}%</td><td>${c.max}%</td><td>${c.samples}</td></tr>`
+        ).join("");
+        cpuHtml = `
+          <div style="display:flex; gap:16px; flex-wrap:wrap;">
+            <table style="width:auto; min-width:160px;">
+              <tr><th>코어</th><th>사용률</th></tr>
+              ${coreRows}
+            </table>
+            <table style="width:auto; min-width:320px;">
+              <tr><th>컴포넌트(프로세스 그룹)</th><th>평균</th><th>최대</th><th>코어 수</th></tr>
+              ${compRows}
+            </table>
+          </div>`;
+      }
+
+      let httpHtml = '<p style="padding:8px 10px;color:#888;">HTTP Worker Statistics 데이터를 찾지 못했습니다.</p>';
+      if (httpWorkerStats) {
+        const rows = httpWorkerStats.map(i => `<tr><td style="text-align:left;">${i.label}</td><td>${i.value}</td></tr>`).join("");
+        httpHtml = `<table><tr><th>항목</th><th>값</th></tr>${rows}</table>`;
+      }
+
+      let tcpHtml = '<p style="padding:8px 10px;color:#888;">TCP/IP Statistics 데이터를 찾지 못했습니다.</p>';
+      if (tcpStats) {
+        const rows = [...tcpStats.general, ...tcpStats.tcp]
+          .map(i => `<tr><td style="text-align:left;">${i.label}</td><td>${i.value ?? "-"}</td></tr>`).join("");
+        tcpHtml = `<table><tr><th>항목</th><th>값</th></tr>${rows}</table>`;
+      }
+
+      let alHtml = '<p style="padding:8px 10px;color:#888;">Access Log Statistics 데이터를 찾지 못했습니다.</p>';
+      if (accessLogStats) {
+        const rows = accessLogStats.map(a =>
+          `<tr><td>${a.type}</td><td>${a.currentLabel}</td><td>${a.maxLabel}</td><td ${pctClass(a.pct)}>${a.pct != null ? a.pct.toFixed(1) + "%" : "-"}</td></tr>`
+        ).join("");
+        alHtml = `<table><tr><th>로그 종류</th><th>현재 크기</th><th>저장 최대 크기</th><th>사용률</th></tr>${rows}</table>`;
+      }
+
+      return `
+        <details style="margin:12px 0; background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px;">
+          <summary style="cursor:pointer; font-weight:bold; color:#1e3a5f;">🔧 ${fileName} — 상세 진단 정보 (CPU Monitor / HTTP Worker / TCP·IP / Access Log)</summary>
+          <div style="margin-top:12px;">
+            <h4 style="margin:14px 0 6px;color:#1e3a8a;">CPU Monitor</h4>
+            ${cpuHtml}
+            <h4 style="margin:14px 0 6px;color:#1e3a8a;">HTTP Worker Statistics</h4>
+            ${httpHtml}
+            <h4 style="margin:14px 0 6px;color:#1e3a8a;">TCP/IP Statistics</h4>
+            ${tcpHtml}
+            <h4 style="margin:14px 0 6px;color:#1e3a8a;">Access Log Statistics (전체 로그 타입)</h4>
+            ${alHtml}
+          </div>
+        </details>`;
+    }
+
+    const section5 = buildDetailBlock(file.name);
+
+    // =======================================================================================
+    // 1. General Info
+    // =======================================================================================
+    const host = match(/appliance-name\s+"([\w\-\_\.\,\~\@\#\(\)\=\+\<\>\[\]]+)"/i);
+    const model = match(/Model\s*:\s*([A-Za-z0-9\-]+)/i);
+    const serial = match(/Serial\s*Number\s*:\s*([0-9A-Z]+)/i);
+
+    // SGOS Version (엑셀 SUBSTITUTE + VLOOKUP 로직 기반)
+    let sgos = "-";
+    const versionLine = text.match(/Version:\s*([^\n]+)/i);
+    if (versionLine) sgos = versionLine[1].replace(/"/g, "").trim();
+
+    // HW/SW Uptime (엑셀 MID + SUBSTITUTE + IF)
+    let uptimeHW = "-";
+    let uptimeSW = "-";
+    let uptime = "-";
+
+    // Match "hardware rebooted 891 days 15 hours ago"
+    const hwMatch = text.match(/hardware rebooted\s+([\d\s\,\w]+hours)\,\s/i);
+    if (hwMatch) uptimeHW = hwMatch[1].trim();
+
+    // Match "software rebooted 891 days 15 hours ago"
+    const swMatch = text.match(/softdware rebooted\s+([\d\s\,\w]+hours)\,\s/i);
+    if (swMatch) uptimeSW = swMatch[1].trim();
+
+    // Combine SW / HW values
+    if (uptimeHW !== "-" && uptimeSW !== "-") {
+      uptime = uptimeHW === uptimeSW ? uptimeHW : `${uptimeSW} / ${uptimeHW}`;
+    } else {
+      uptime = uptimeHW !== "-" ? uptimeHW : uptimeSW;
+    }
+
+    const cpuTemp = match(/CPU\s*\d*\s*temperature\s*([0-9]+(?:\.[0-9]+)?)\s*degrees\s/i);
+    const sysTemp = match(/System center temperature\s*([0-9]+(?:\.[0-9]+)?)\s*degrees\s/i);
+    
+    
+    
+    
+    // ---------------------------------------------------------------------------------------
+    // Deployment Mode
+    // ---------------------------------------------------------------------------------------
+    // Explicit과 External 트래픽 비교
+    function sumBytesByKeys(keys) {
+      let sum = 0;
+      for (const key of keys) {
+        const match = text.match(new RegExp(`${key}[^\n]*:\\s*([0-9\\s]+)`, "i"));
+        if (match) {
+          const nums = match[1].trim().split(/\s+/).map(Number).filter(n => !isNaN(n));
+          if (nums.length > 0) sum += nums.reduce((a, b) => a + b, 0);
+        }
+      }
+      return sum;
+    }
+
+    // Explicit과 External의 키워드
+    const explicitKeys = [
+      "svc:service:HTTP:Explicit HTTP:intercepted_client_bytes~monthly"
+    ];
+    const externalKeys = [
+      "svc:service:HTTP:External HTTP:intercepted_client_bytes~monthly"
+    ];
+
+    // 합계 계산
+    const explicitBytes = sumBytesByKeys(explicitKeys);
+    const externalBytes = sumBytesByKeys(externalKeys);
+
+    // 더 큰 값을 가진 항목을 표기
+    const deploymentMode = explicitBytes > externalBytes ? "Explicit" : "TP";
+
+
+    // =======================================================================================
+    // 2.  Hardware & Network
+    // =======================================================================================
+    // CPU Usage (Now)
+    let cpuNow = "-";
+    const cpuHourlyMatch = text.match(/system:cpu-usage~hourly[^\n]*:\s*([0-9\s]+)/i);
+    if (cpuHourlyMatch) {
+      const nums_cpu = cpuHourlyMatch[1].trim().split(/\s+/).map(Number);
+      cpuNow = nums_cpu.at(-1) + "%"; // 마지막 값
+    }
+
+    // CPU Peak
+    let cpuPeak = "-";
+    const cpuDailyMatch = text.match(/system:cpu-usage~daily[^\n]*:\s*([0-9\s]+)/i);
+    if (cpuHourlyMatch || cpuDailyMatch) {
+      const hourlyMax_cpu = cpuHourlyMatch ? Math.max(...cpuHourlyMatch[1].trim().split(/\s+/).map(Number)) : 0;
+      const dailyMax_cpu = cpuDailyMatch ? Math.max(...cpuDailyMatch[1].trim().split(/\s+/).map(Number)) : 0;
+      const peak_cpu = Math.max(hourlyMax_cpu, dailyMax_cpu);
+      cpuPeak = peak_cpu + "%";
+    }
+    
+    // MEM Usage (Now)
+    let memNow = "-";
+    const memHourlyMatch = text.match(/system:memory-usage~hourly[^\n]*:\s*([0-9\s]+)/i);
+    if (memHourlyMatch) {
+      const nums_mem = memHourlyMatch[1].trim().split(/\s+/).map(Number);
+      memNow = nums_mem.at(-1) + "%"; // 마지막 값
+    }
+
+    // MEM Peak
+    let memPeak = "-";
+    const memDailyMatch = text.match(/system:memory-usage~daily[^\n]*:\s*([0-9\s]+)/i);
+    if (memHourlyMatch || memDailyMatch) {
+      const hourlyMax_mem = memHourlyMatch ? Math.max(...memHourlyMatch[1].trim().split(/\s+/).map(Number)) : 0;
+      const dailyMax_mem = memDailyMatch ? Math.max(...memDailyMatch[1].trim().split(/\s+/).map(Number)) : 0;
+      const peak_mem = Math.max(hourlyMax_mem, dailyMax_mem);
+      memPeak = peak_mem + "%";
+    }
+    
+    // Disk Status 종합 판단
+    let disk = "-";
+    const diskBlocks = text.match(/Stat:\s*Disk\s+\d+\s+Status[\s\S]*?(?=Stat:|$)/gi);
+    if (diskBlocks && diskBlocks.length > 0) {
+      const allOK = diskBlocks.every(block => /Current\s+State\s*:\s*OK/i.test(block));
+      disk = allOK ? "OK" : "NOK";
+    }
+
+    // Tx / Rx Rate 계산
+    let txRate = "-";
+    let rxRate = "-";
+
+    const interfaces = [];
+    for (let i = 0; i <= 4; i++) {
+      for (let j = 0; j <= 3; j++) {
+        interfaces.push(`${i}:${j}`);
+      }
+    }
+
+    // 공통 처리 함수
+    function calcRate(direction) {
+      let maxAvg = 0;
+      for (const iface of interfaces) {
+        const key = `tcpip:interface:${iface}:bytes-${direction}~daily15minute`;
+        const match = text.match(new RegExp(`${key}[^\n]*:\\s*([\\d\\s]+)`, "i"));
+        if (match) {
+          const nums = match[1].trim().split(/\s+/).map(Number).filter(n => !isNaN(n));
+          if (nums.length > 0) {
+            // 상위 32개 평균
+            const top32 = nums.sort((a, b) => b - a).slice(0, 32);
+            const avg = top32.reduce((a, b) => a + b, 0) / top32.length;
+
+            // byte → bit 변환, 900초(15분) 기준 환산
+            const bps = (avg * 8) / 900;
+            const mbps = bps / 1_000_000;
+            if (mbps > maxAvg) maxAvg = mbps;
+          }
+        }
+      }
+
+      // 단위 결정
+      if (maxAvg > 0) {
+        return maxAvg >= 1 ? `${maxAvg.toFixed(1)} Mbps` : `${(maxAvg * 1000).toFixed(1)} Kbps`;
+      }
+      return "-";
+    }
+
+    // Tx / Rx 모두 계산
+    txRate = calcRate("sent");
+    rxRate = calcRate("received");
+
+    
+    // Users (엑셀의 @getmax 로직 기반)
+    let users = "-";
+
+    const usersMatch = text.match(/users:current~monthly[^\n]*:\s*([0-9\s]+)/i);
+    if (usersMatch) {
+      const nums = usersMatch[1].trim().split(/\s+/).map(Number).filter(n => !isNaN(n));
+      if (nums.length > 0) {
+        const maxUsers = Math.max(...nums);
+        users = maxUsers.toString();
+      }
+    }
+
+    // HTTPS Sessions (엑셀의 @getmax 로직 기반)
+    let httpsSessions = "-";
+
+    const sessionMatch = text.match(/http:client-volume~monthly[^\n]*:\s*([0-9\s]+)/i);
+    if (sessionMatch) {
+      const nums = sessionMatch[1].trim().split(/\s+/).map(Number).filter(n => !isNaN(n));
+      if (nums.length > 0) {
+        const maxSess = Math.max(...nums);
+        httpsSessions = maxSess.toString();
+      }
+    }
+
+    
+
+    //-------------------------------------------------------------
+    // Total Traffic (svc:ds:proxy:intercepted_client_bytes~monthly)
+    //-------------------------------------------------------------
+    let totalTraffic = "-";
+
+    const totalMatch = text.match(/svc:ds:proxy:intercepted_client_bytes~monthly[^\n]*:\s*([0-9\s]+)/i);
+    if (totalMatch) {
+      const nums = totalMatch[1].trim().split(/\s+/).map(Number).filter(n => !isNaN(n));
+      if (nums.length > 0) {
+        const sumBytes = nums.reduce((a, b) => a + b, 0);
+
+        // Byte → MB/GB/TB 단위 변환 (10진 단위)
+        let value = sumBytes;
+        let unit = "Bytes";
+        if (value >= 1e12) {
+          value = value / 1e12;
+          unit = "TB";
+        } else if (value >= 1e9) {
+          value = value / 1e9;
+          unit = "GB";
+        } else if (value >= 1e6) {
+          value = value / 1e6;
+          unit = "MB";
+        } else if (value >= 1e3) {
+          value = value / 1e3;
+          unit = "KB";
+        }
+        totalTraffic = `${value.toFixed(2)} ${unit}`;
+      }
+    }
+
+    //-------------------------------------------------------------
+    // Peak Traffic (monthly/daily/hourly 단위별 변환 포함)
+    //-------------------------------------------------------------
+    let peakTraffic = "-";
+    let peakMbps = 0;
+
+    // 대상 키워드와 단위 변환 비율 (초 단위로 나누는 값)
+    const peakKeys = [
+      { key: "svc:ds:proxy:intercepted_client_bytes~monthly", divisor: 24 * 60 * 60 },
+      { key: "svc:ds:proxy:intercepted_client_bytes~daily", divisor: 60 * 60 },
+      { key: "svc:ds:proxy:intercepted_client_bytes~hourly", divisor: 60 }
+    ];
+
+    // 각 구간별로 최대값 비교
+    for (const item of peakKeys) {
+      const match = text.match(new RegExp(`${item.key}[^\n]*:\\s*([0-9\\s]+)`, "i"));
+      if (match) {
+        const nums = match[1].trim().split(/\s+/).map(Number).filter(n => !isNaN(n));
+        if (nums.length > 0) {
+          const maxBytes = Math.max(...nums);
+
+          // Byte → bit 변환 후, 해당 구간 시간 단위로 나누고 Mbps로 변환
+          const bps = (maxBytes * 8) / item.divisor;
+          const mbps = bps / 1_000_000;
+
+          if (mbps > peakMbps) peakMbps = mbps;
+        }
+      }
+    }
+
+    if (peakMbps > 0) {
+      peakTraffic = `${peakMbps.toFixed(1)} Mbps`;
+    }
+
+
+    //-------------------------------------------------------------
+    // HTTP% + HTTPS% 계산 (엑셀 Sysinfo_1 동일)
+    //-------------------------------------------------------------
+
+    // 안전한 키워드 매칭 함수 (공백/특수문자 대응)
+    function safeMatchKey(key) {
+      const safeKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return text.match(new RegExp(`${safeKey}[^\n]*:\\s*([0-9\\s]+)`, "i"));
+    }
+
+    // 특정 키워드 세트의 숫자 합계 계산 함수
+    function sumBytesByKeys(keys) {
+      let sum = 0;
+      for (const key of keys) {
+        const match = safeMatchKey(key);
+        if (match) {
+          const nums = match[1].trim().split(/\s+/).map(Number).filter(n => !isNaN(n));
+          if (nums.length > 0) sum += nums.reduce((a, b) => a + b, 0);
+        }
+      }
+      return sum;
+    }
+
+    //------------------------
+    // HTTP% 계산
+    //------------------------
+    let httpPercent = "-";
+
+    const httpKeys = [
+      "svc:proxy:HTTP:intercepted_client_bytes~monthly",
+      "svc:proxy:HTTP:bypassed_bytes~monthly"
+    ];
+    const totalKeys_HTTP = [
+      "svc:ds:proxy:bypassed_bytes~monthly",
+      "svc:ds:proxy:intercepted_client_bytes~monthly"
+    ];
+
+    const httpBytes = sumBytesByKeys(httpKeys);
+    const totalBytes_HTTP = sumBytesByKeys(totalKeys_HTTP);
+
+    if (httpBytes > 0 && totalBytes_HTTP > 0) {
+      const ratio = (httpBytes / totalBytes_HTTP) * 100;
+      httpPercent = `${ratio.toFixed(1)}%`;
+    }
+
+    //------------------------
+    // HTTPS% 계산
+    //------------------------
+    let httpsPercent = "-";
+
+    const httpsKeys = [
+      "svc:proxy:HTTPS Forward Proxy:intercepted_client_bytes~monthly"
+    ];
+    const sslKeys = [
+      "svc:proxy:SSL:intercepted_client_bytes~monthly",
+      "svc:proxy:SSL:bypassed_bytes~monthly"
+    ];
+    const totalKeys_HTTPS = [
+      "svc:ds:proxy:bypassed_bytes~monthly",
+      "svc:ds:proxy:intercepted_client_bytes~monthly"
+    ];
+
+    const httpsBytes = sumBytesByKeys(httpsKeys);
+    const sslBytes = sumBytesByKeys(sslKeys);
+    const totalBytes_HTTPS = sumBytesByKeys(totalKeys_HTTPS);
+
+    if (totalBytes_HTTPS > 0 && (httpsBytes > 0 || sslBytes > 0)) {
+      const httpsRatio = httpsBytes / totalBytes_HTTPS;
+      const sslRatio = sslBytes / totalBytes_HTTPS;
+      const totalRatio = (httpsRatio + sslRatio) * 100;
+      httpsPercent = `${totalRatio.toFixed(1)}%`;
+    }
+
+    //-------------------------------------------------------------
+    // Savings% 계산 (엑셀 Sysinfo_1 동일)
+    //-------------------------------------------------------------
+    let savingsPercent = "-";
+
+    // 키워드 정의
+    const serverKeys = ["svc:ds:proxy:intercepted_server_bytes~monthly"];
+    const clientKeys = ["svc:ds:proxy:intercepted_client_bytes~monthly"];
+
+    // 서버 / 클라이언트 바이트 합계 계산
+    const serverBytes = sumBytesByKeys(serverKeys);
+    const clientBytes = sumBytesByKeys(clientKeys);
+
+    // 절감율 계산
+    if (serverBytes > 0 && clientBytes > 0) {
+      const ratio = (1-(serverBytes / clientBytes)) * 100;
+      savingsPercent = `${ratio.toFixed(1)}%`;
+    }
+
+	// =======================================================================================
+    // 3. Proxy Features
+    // =======================================================================================
+    // 날짜 포맷을 'yyyy. mm. dd.' 형식으로 변환하는 함수
+    function formatDate(dateString) {
+      const date = new Date(dateString);
+      const year = date.getFullYear();
+      const month = (date.getMonth() + 1).toString().padStart(2, '0'); // 월은 0부터 시작하므로 +1
+      const day = date.getDate().toString().padStart(2, '0'); // 날짜 두 자릿수로 맞추기
+
+      return `${year}. ${month}. ${day}.`;
+    }
+
+    // 'Licensed Until:' 키워드에서 날짜 추출
+    const licenseMatch = text.match(/Licensed Until:[\s\,\w]*\s(\d{1,2}\s\w{3}\s\d{4})\s/i);
+    let licenseDate = "정보 없음";
+
+    if (licenseMatch) {
+      // 날짜 포맷 변환
+      licenseDate = formatDate(licenseMatch[1]);
+    }
+    
+    // Web Filtering Database 확인
+    function getClosestDate(text) {
+      let dataValid = "-";
+      let urlFilter = "-";
+
+      // ✅ 1️⃣ Data Source 구분
+      const dataSourceMatch = text.match(/Data Source:\s*(Intelligence Services|WebFilter)/i);
+      if (dataSourceMatch) {
+        if (/Intelligence Services/i.test(dataSourceMatch[1])) urlFilter = "BCIS";
+        else if (/WebFilter/i.test(dataSourceMatch[1])) urlFilter = "BCWF";
+      }
+
+      // ✅ 2️⃣ 날짜 추출
+      if (urlFilter === "BCIS") {
+        // BCIS → 기존 로직 사용
+        const dates = [];
+        const dataValidMatch = text.match(/Data Valid Until:[^\n]*?(\d{1,2}\s\w{3}\s\d{4})/);
+        const blueCoatDownloadMatch = text.match(/Blue Coat download at:[^\n]*?(\d{1,2}\s\w{3}\s\d{4})/);
+        const differentialUpdateMatch = text.match(/Differential update[^\n]*?(\d{1,2}\s\w{3}\s\d{4})/);
+        const timeMatch = text.match(/Time:\s*(\d{1,2}\s\w{3}\s\d{4})/);
+
+        if (dataValidMatch) dates.push(new Date(dataValidMatch[1]));
+        if (blueCoatDownloadMatch) dates.push(new Date(blueCoatDownloadMatch[1]));
+        if (differentialUpdateMatch) dates.push(new Date(differentialUpdateMatch[1]));
+        if (timeMatch) dates.push(new Date(timeMatch[1]));
+
+        if (dates.length > 0) {
+          const maxDate = new Date(Math.max(...dates));
+          dataValid = maxDate.toLocaleDateString();
+        }
+      }
+
+      else if (urlFilter === "BCWF") {
+        // BCWF → "Database expires:" 줄만 사용
+        const dbExpireMatch = text.match(/Database expires:\s*([A-Za-z]{3},\s*\d{1,2}\s*[A-Za-z]{3}\s*\d{4})/i);
+        if (dbExpireMatch) {
+          const dateStr = dbExpireMatch[1].replace(/,/g, "").trim(); // Tue, 19 Jan 2038 → Tue 19 Jan 2038
+          const parsed = new Date(dateStr);
+          if (!isNaN(parsed)) {
+            dataValid = parsed.toLocaleDateString();
+          }
+        }
+      }
+
+      return { dataValid, urlFilter };
+    }
+
+
+    // 함수 사용
+    const { dataValid, urlFilter } = getClosestDate(text);
+
+
+    // 로컬 데이터베이스 함수
+    const localDBMatch = text.match(/Local database download at:\s*(\d{4}\/\d{2}\/\d{2})\s/i);
+
+    let localDBDate = "-";  // 기본값
+	
+    if (localDBMatch) {
+      // 날짜 문자열을 yyyy. mm. dd. 형식으로 변환
+      const rawDate = localDBMatch[1];  // 2025/07/28
+      const dateParts = rawDate.split("/");  // ["2025", "07", "28"]
+      localDBDate = `${dateParts[0]}. ${dateParts[1]}. ${dateParts[2]}.`;  // "2025. 07. 28."
+    }
+    
+    const webpulse = match(/WebPulse:\s*(Enabled|Disabled)/i);
+    const appProtect = match(/Application Protection:\s*(Enabled|Disabled)/i);
+    
+    
+    // application-classification ;mode 키워드가 포함된 줄 찾기
+    const appClassKeywordMatch = text.match(/application-classification\s*;\s*mode/i);
+
+    let appClass = "-";
+
+    if (appClassKeywordMatch) {
+      // 키워드가 포함된 줄 인덱스 찾기
+      const lines = text.split("\n");  // 텍스트를 줄별로 분리
+      const appClassIndex = lines.findIndex(line => line.includes("application-classification ;mode"));
+
+      // 바로 다음 줄 확인
+      if (appClassIndex !== -1 && lines[appClassIndex + 1]?.trim() === "enable") {
+        appClass = "Enabled";  // 그 다음 줄 값이 'enable'이면 Enabled로 설정
+      }
+    }
+
+
+	// security windows-domains ;mode 키워드가 포함된 줄 찾기
+    const authKeywordMatch = text.match(/security\swindows\-domains\s*;mode/i);
+
+    let auth = "-";
+
+    if (authKeywordMatch) {
+      // 키워드가 포함된 줄 인덱스 찾기
+      const auth_lines = text.split("\n");  // 텍스트를 줄별로 분리
+      const authIndex = auth_lines.findIndex(line => line.includes("security windows-domains ;mode"));
+
+      // 바로 다음 줄 확인
+      if (authIndex !== -1 && auth_lines[authIndex + 1]?.trim().includes("hostname")) {
+        auth = "Enabled";
+      }
+    }
+
+    const etap = match(/client\.connection[\.\w\_]+tap\s*\(([\d\:]+)\)/i);
+
+	// =======================================================================================
+    // 4. Logging & Services
+    // =======================================================================================
+    const icapReq = "귀찮아서";
+	const icapResp = "아직 안만듦";
+    
+    
+    // Title: Access Log (main) Statistics 키워드가 포함된 줄 찾기
+    const mainKeywordMatch = text.match(/Title\:\sAccess\sLog\s\(main\)\sStatistics/i);
+    let httpLog = "-";
+    if (mainKeywordMatch) {
+      // 키워드가 포함된 줄 인덱스 찾기
+      const main_lines = text.split("\n");  // 텍스트를 줄별로 분리
+      const mainIndex = main_lines.findIndex(line => line.includes("Title: Access Log (main) Statistics"));
+
+      // AL_STATS_0037 값을 포함한 37번째 줄 확인
+      const http_targetLine = main_lines[mainIndex + 37]?.trim();
+
+      // AL_STATS_0037 다음 값을 추출
+      const http_match = http_targetLine.match(/AL_STATS_0037\s*(\d+)/);
+      if (http_match) {
+        httpLog = (http_match[1]/1000/1000).toFixed(1); // AL_STATS_0037 이후 숫자를 httpLog에 저장
+      }
+    }
+
+
+	// Title: Access Log (ssl) Statistics 키워드가 포함된 줄 찾기
+    const sslKeywordMatch = text.match(/Title\:\sAccess\sLog\s\(ssl\)\sStatistics/i);
+    let httpsLog = "-";
+    if (sslKeywordMatch) {
+      // 키워드가 포함된 줄 인덱스 찾기
+      const ssl_lines = text.split("\n");  // 텍스트를 줄별로 분리
+      const sslIndex = ssl_lines.findIndex(line => line.includes("Title: Access Log (ssl) Statistics"));
+
+      // AL_STATS_0037 값을 포함한 37번째 줄 확인
+      const ssl_targetLine = ssl_lines[sslIndex + 37]?.trim();
+
+      // AL_STATS_0037 다음 값을 추출
+      const ssl_match = ssl_targetLine.match(/AL_STATS_0037\s*(\d+)/);
+      if (ssl_match) {
+        httpsLog = (ssl_match[1]/1000/1000).toFixed(1); // AL_STATS_0037 이후 숫자를 httpsLog에 저장
+      }
+    }
+    
+    
+    // format-name ssl 키워드가 포함된 줄 찾기
+    const LogbackupKeywordMatch = text.match(/format\-name\sssl/i);
+
+    let Logbackup = "-";
+
+    if (LogbackupKeywordMatch) {
+      // 키워드가 포함된 줄 인덱스 찾기
+      const Logbackup_lines = text.split("\n");  // 텍스트를 줄별로 분리
+      const LogbackupIndex = Logbackup_lines.findIndex(line => line.includes("format-name ssl"));
+
+      // 바로 다음 줄 확인
+      if (LogbackupIndex !== -1 && Logbackup_lines[LogbackupIndex + 1]?.trim().includes("ftp-client primary")) {
+        Logbackup = "FTP";
+      }
+    }
+
+
+    // syslog enable 키워드 확인
+    let syslogStatus = "-";
+    const syslogMatch = text.match(/syslog\s+enable/i);
+
+    if (syslogMatch) {
+      syslogStatus = "Syslog";
+    }
+    
+    
+    const coreImage = match(/restart\score\-image\s([\w]+)/i);
+    
+    
+    const getClassForDate = (dateString) => {
+    const today = new Date();
+    const targetDate = new Date(dateString);
+
+    // 날짜 차이 계산
+    const diffInTime = today - targetDate;
+    const diffInDays = Math.floor(diffInTime / (1000 * 3600 * 24)); // 일 단위로 변환
+
+    // 색상 클래스 결정
+    return (diffInDays <= 30) ? "yellow" : (diffInDays > 30 && diffInDays <= 60 ? "yellow" : "red");
+  };
+
+    
+    // =======================================================================================
+    // 결과를 resolve로 반환
+    // =======================================================================================
+            resolve({
+              name: file.name,
+              section1: `<tr>
+                  <td>${host}</td><td>${model}</td>
+                  <td>${serial}</td>
+                  <td>${sgos}</td>
+                  <td>${uptime}</td>
+                  <td>${cpuTemp ? cpuTemp+"°C" : "-"}</td>
+                  <td>${sysTemp ? sysTemp+"°C" : "-"}</td>
+                  <td>${deploymentMode}</td>
+                </tr>`,
+              section2: `<tr>
+                  <td>${cpuNow} / ${cpuPeak}</td>
+                  <td>${memNow} / ${memPeak}</td>
+                  <td ${oknok(disk)}>${disk}</td>
+                  <td>${txRate}</td>
+                  <td>${rxRate}</td>
+                  <td>${users}</td>
+                  <td>${httpsSessions}</td>
+                  <td>${totalTraffic}</td>
+                  <td>${peakTraffic}</td>
+                  <td>${httpPercent}</td>
+                  <td>${httpsPercent}</td>
+                  <td>${savingsPercent}</td>
+                </tr>`,
+              section3: `<tr>
+                  <td>${licenseDate} (${getDateDiff(licenseDate)}일)</td>
+                  <td>${urlFilter} / ${dataValid} (${getDateDiff(dataValid)}일)</td>
+                  <td>${localDBDate} (${getDateDiff(localDBDate)}일)</td>
+                  <td>${webpulse}</td>
+                  <td>${appProtect}</td>
+                  <td>${appClass}</td>
+                  <td>${auth}</td>
+                  <td>${etap}</td>
+                </tr>`,
+              section4: `<tr>
+                  <td>${icapReq}</td>
+                  <td>${icapResp}</td>
+                  <td>${httpLog}MB</td>
+                  <td>${httpsLog}MB</td>
+                  <td>${Logbackup}</td>
+                  <td>${syslogStatus}</td>
+                  <td>${coreImage}</td>
+                </tr>`,
+              section5: section5
+            });
+          };
+          reader.readAsText(file);
+        });
+      })
+    );
+
+    // ✅ 모든 파일 읽은 뒤 HTML 생성
+    const s1 = results.map((r) => r.section1).join("");
+    const s2 = results.map((r) => r.section2).join("");
+    const s3 = results.map((r) => r.section3).join("");
+    const s4 = results.map((r) => r.section4).join("");
+    const s5 = results.map((r) => r.section5).join("");
+    
+    const sanitize = (s) => s.replace(/\bNaN\b/g, "-").replace(/undefined|null/gi, "-");
+
+
+    document.getElementById("report").innerHTML += sanitize(`
+      <div class="section">
+        <div class="section-header">① General Information & Configuration Backup</div>
+        <table>
+          <tr>
+          	<th colspan="5">Appliance</th>
+            <th colspan="2">Temperature</th>
+            <th rowspan="2">Deployment Mode</th>
+          </tr>
+          <tr>
+          	<th>Host Name</th>
+            <th>Model</th>
+            <th>Serial Number</th>
+            <th>SGOS Version</th>
+            <th>Uptime (SW/HW)</th>
+            <th>CPU Temp</th>
+            <th>System Temp</th>
+          </tr>
+          ${s1}
+        </table>
+      </div>
+
+      <div class="section">
+        <div class="section-header">② Hardware & Network</div>
+        <table>
+          <tr>
+          	<th rowspan="2">CPU Usage<br>(Now/Peak)</th>
+            <th rowspan="2">MEM Usage<br>(Now/Peak)</th>
+            <th rowspan="2">Disk Status</th>
+            <th colspan="2">Interface</th>
+            <th colspan="2">Network (Peak)</th>
+            <th colspan="5">Intercepted Traffic Usage</th>
+          </tr>
+          <tr>
+          	<th>Tx Rate</th>
+            <th>Rx Rate</th>
+            <th>Users</th>
+            <th>HTTPS Sessions</th>
+            <th>Total Traffic</th>
+            <th>Peak Traffic</th>
+            <th>HTTP%</th>
+            <th>HTTPS%</th>
+            <th>Savings</th>
+  		   </tr>
+          ${s2}
+        </table>
+      </div>
+
+      <div class="section">
+        <div class="section-header">③ Proxy Features</div>
+        <table>
+          <tr>
+          	<th rowspan="2">License Expiry</th>
+            <th rowspan="2">Web Filtering Database</th>
+            <th rowspan="2">Local DB</th>
+            <th colspan="2">Threat Protection</th>
+            <th colspan="3">Configuration</th>
+  		  </tr>
+          <tr>
+          	<th>WebPulse</th>
+            <th>App Protect</th>
+            <th>App Class</th>
+            <th>Auth (AD)</th>
+            <th>eTap</th>
+  		  </tr>
+          ${s3}
+        </table>
+      </div>
+
+      <div class="section">
+        <div class="section-header">④ Logging & Services</div>
+        <table>
+          <tr>
+          	<th colspan="2">Content Analysis (ICAP)</th>
+            <th colspan="2">Access Logs Size</th>
+            <th colspan="3">Log Backup Settings</th>
+          </tr>
+          <tr>
+          	<th>REQ</th>
+            <th>RESP</th>
+            <th>HTTP Log</th>
+            <th>HTTPS Log</th>
+            <th>Access Log Backup</th>
+            <th>Event Log Backup</th>
+            <th>Core Image</th>
+          </tr>
+          ${s4}
+        </table>
+      </div>
+
+      <div class="section">
+        <div class="section-header">⑤ 상세 진단 정보 (파일별 · CPU Monitor / HTTP Worker / TCP·IP / Access Log)</div>
+        <div style="padding:10px 14px;">
+          ${s5}
+        </div>
+      </div>`);
+  });
+  
+  
+  // =======================================================================================
+  // HTML 다운로드 버튼 기능
+  // =======================================================================================
+  document.getElementById("downloadBtn").addEventListener("click", function () {
+    // 현재 페이지 HTML 전체를 Blob으로 저장
+    const fullHTML = document.documentElement.outerHTML;
+    const blob = new Blob([fullHTML], { type: "text/html" });
+
+    // 오늘 날짜 기반 파일명
+    const date = new Date();
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
+    const fileName = `ProxySG_Report_${yyyy}${mm}${dd}.html`;
+
+    // 다운로드 링크 생성 및 실행
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = fileName;
+    a.click();
+
+    // 메모리 해제
+    URL.revokeObjectURL(a.href);
+  });
+  
+  
+  
+
+</script>
+
+<script>
+  // === 드래그 앤 드롭 기능 추가 ===
+  const dropZone = document.getElementById("dropZone");
+
+  // 기본 이벤트 막기 + 드래그 시 스타일 변경
+  ["dragenter", "dragover"].forEach(eventName => {
+    dropZone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.add("dragover");
+    });
+  });
+
+  // 드래그 종료 시 스타일 복구
+  ["dragleave", "drop"].forEach(eventName => {
+    dropZone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.remove("dragover");
+    });
+  });
+
+  // 드롭 시 파일 처리
+  dropZone.addEventListener("drop", (e) => {
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      // input의 change 이벤트와 동일하게 실행
+      document.getElementById("fileInput").files = files;
+      const event = new Event("change");
+      document.getElementById("fileInput").dispatchEvent(event);
+    }
+  });
+</script>
+
+
+<!-- === 모달 트리거 버튼 === -->
+<button id="openModal">🧩 curl 명령어 만들기</button>
+
+<!-- === 모달 구조 === -->
+<div id="modalOverlay" class="modal-overlay">
+  <div class="modal">
+    <button class="close-btn">×</button>
+
+    <!-- === 실제 Sysinfo curl 생성기 HTML 삽입 === -->
+    <div class="container">
+      <h2>Sysinfo curl 명령어 생성기 <span class="badge">마지막만 explorer 실행</span></h2>
+
+      <div class="input-row">
+        <div>
+          <label>Username</label>
+          <input id="username" type="text" class="w-sm" placeholder="admin">
+        </div>
+        <div>
+          <label>Password</label>
+          <input id="password" type="password" class="w-sm" placeholder="password">
+        </div>
+        <div>
+          <label>Path</label>
+          <input id="endpoint" type="text" class="w-md" value="/sysinfo">
+        </div>
+      </div>
+
+      <div class="input-row">
+        <div style="width:90%;">
+          <label>Proxy IP / Host (여러 개 입력 가능)</label>
+          <textarea id="proxyList" placeholder="예: 192.168.1.10, 192.168.1.11"></textarea>
+        </div>
+      </div>
+
+      <label>생성된 curl 명령</label>
+      <pre id="cmds"></pre>
+
+      <div class="actions">
+        <button id="copy">전체 복사</button>
+        <span class="note">📂 마지막 다운로드 완료 후에만 폴더가 열립니다.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // === 모달 제어 ===
+  const openModal = document.getElementById("openModal");
+  const modalOverlay = document.getElementById("modalOverlay");
+  const closeBtn = document.querySelector(".close-btn");
+
+  openModal.addEventListener("click", () => modalOverlay.style.display = "flex");
+  closeBtn.addEventListener("click", () => modalOverlay.style.display = "none");
+  modalOverlay.addEventListener("click", e => { if (e.target === modalOverlay) modalOverlay.style.display = "none"; });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") modalOverlay.style.display = "none"; });
+
+  // === curl 생성기 로직 ===
+  (function(){
+    const username=document.getElementById('username');
+    const password=document.getElementById('password');
+    const proxyList=document.getElementById('proxyList');
+    const endpoint=document.getElementById('endpoint');
+    const cmdsEl=document.getElementById('cmds');
+    const copyBtn=document.getElementById('copy');
+
+    function pad(n){return n<10?'0'+n:n;}
+    function yyyymmdd(d){return d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate());}
+    function tailForFilename(host){
+      if(!host)return'ip';
+      try{
+        let h=host.trim().replace(/^https?:\/\//i,'').replace(/\/.*$/,'');
+        if(h.includes(':'))h=h.split(':')[0];
+        const parts=h.split('.');
+        const last=parts[parts.length-1];
+        if(/^\d+$/.test(last))return last;
+        return h.replace(/[^0-9a-zA-Z]/g,'_').slice(0,15)||'host';
+      }catch{return'ip';}
+    }
+    function parseHosts(raw){return raw.split(/[, \t\r\n]+/).map(x=>x.trim()).filter(Boolean);}
+    function buildCommands(){
+      const u=username.value.trim(), p=password.value;
+      const ep=endpoint.value.trim()||'/sysinfo';
+      const epFinal=ep.startsWith('/')?ep:'/'+ep;
+      const hosts=parseHosts(proxyList.value);
+      const date=yyyymmdd(new Date());
+      const cmds=[];
+      hosts.forEach((h, idx)=>{
+        const tail=tailForFilename(h);
+        const filename=`sysinfo_${tail}_${date}.txt`;
+        const cred=(u||p)?`${u}:${p}`:'';
+        const credPart=cred?`-u ${cred} `:'';
+        const explorerPart=(idx===hosts.length-1)?" && explorer .":"";
+        cmds.push(`curl -k ${credPart}https://${h}:8082${epFinal} -o ${filename}${explorerPart}`);
+      });
+      return cmds;
+    }
+    function refresh(){
+      const cmds=buildCommands();
+      cmdsEl.textContent=cmds.length?cmds.join('\n'):'# IP/Host를 입력하세요';
+    }
+    [username,password,proxyList,endpoint].forEach(e=>e.addEventListener('input',refresh));
+    refresh();
+    copyBtn.onclick=async()=>{
+      try{
+        await navigator.clipboard.writeText(cmdsEl.textContent);
+        copyBtn.textContent='복사됨 ✓';
+        setTimeout(()=>copyBtn.textContent='전체 복사',1500);
+      }catch{alert('복사 실패');}
+    };
+  })();
+</script>
+
+
+</body>
+</html>
