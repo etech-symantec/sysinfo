@@ -838,9 +838,12 @@
       const isHttpsCategory = /https|ssl/i.test(sectionName) || /https|ssl/i.test(statusValue);
       const isHttpCategory = !isHttpsCategory && (/http|main/i.test(sectionName) || /http|main/i.test(statusValue));
 
-      const debugEntry = `(${sectionName}) 0026: ${statusValue}${isSkipped ? "" : " ✓"}`;
-      if (isHttpsCategory) httpsDebug026.push(debugEntry);
-      else if (isHttpCategory) httpDebug026.push(debugEntry);
+      const debugEntry = `(${sectionName}) ${statusValue} ✓`;
+      // Never rotated / Not Applicable 인 항목은 화면에 표시하지 않음
+      if (!isSkipped) {
+        if (isHttpsCategory) httpsDebug026.push(debugEntry);
+        else if (isHttpCategory) httpDebug026.push(debugEntry);
+      }
 
       if (isSkipped || !targetLine) return;
 
