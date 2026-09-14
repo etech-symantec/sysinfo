@@ -802,30 +802,36 @@
     // httpLog / httpsLog 에 값을 라우팅하는 헬퍼 함수
     let httpLog = "-";
     let httpsLog = "-";
+    // 화면에 원본 AL_STATS_0026 값을 같이 표시하기 위한 디버그용 변수
+    let mainStatus026 = "-";
+    let sslStatus026 = "-";
 
     function extractLogStat(sectionTitleText, lines) {
+      const result = { statusValue: "-" };
       const sectionIndex = lines.findIndex(line => line.includes(sectionTitleText));
-      if (sectionIndex === -1) return;
+      if (sectionIndex === -1) return result;
 
       // AL_STATS_0026 값을 포함한 26번째 줄 확인
       const statusLine = lines[sectionIndex + 26]?.trim();
       // AL_STATS_0027 값을 포함한 27번째 줄 확인
       const targetLine = lines[sectionIndex + 27]?.trim();
-      if (!statusLine || !targetLine) return;
+      if (!statusLine) return result;
 
-      // AL_STATS_0026 다음 값을 추출
+      // AL_STATS_0026 다음 값을 추출 (못 찾으면 원본 줄 그대로 표시해서 디버그)
       const status_match = statusLine.match(/AL_STATS_0026\s*(.+)/i);
-      if (!status_match) return;
-      const statusValue = status_match[1].trim();
+      const statusValue = status_match ? status_match[1].trim() : statusLine;
+      result.statusValue = statusValue || "-";
+
+      if (!status_match || !targetLine) return result;
 
       // Never rotated / Not Applicable 인 경우 값을 사용하지 않음
       if (/never\s*rotated/i.test(statusValue) || /not\s*applicable/i.test(statusValue)) {
-        return;
+        return result;
       }
 
       // AL_STATS_0027 다음 값을 추출
       const value_match = targetLine.match(/AL_STATS_0027\s*(\d+)/);
-      if (!value_match) return;
+      if (!value_match) return result;
       const computedValue = (value_match[1]/1000/1000).toFixed(1);
 
       // AL_STATS_0026 값 내용에 따라 HTTP / HTTPS 로그로 분류
@@ -834,18 +840,20 @@
       } else if (/http|main/i.test(statusValue)) {
         httpLog = computedValue;
       }
+
+      return result;
     }
 
     // Title: Access Log (main) Statistics 섹션 확인
     if (text.match(/Title\:\sAccess\sLog\s\(main\)\sStatistics/i)) {
       const main_lines = text.split("\n");  // 텍스트를 줄별로 분리
-      extractLogStat("Title: Access Log (main) Statistics", main_lines);
+      mainStatus026 = extractLogStat("Title: Access Log (main) Statistics", main_lines).statusValue;
     }
 
 	// Title: Access Log (ssl) Statistics 섹션 확인
     if (text.match(/Title\:\sAccess\sLog\s\(ssl\)\sStatistics/i)) {
       const ssl_lines = text.split("\n");  // 텍스트를 줄별로 분리
-      extractLogStat("Title: Access Log (ssl) Statistics", ssl_lines);
+      sslStatus026 = extractLogStat("Title: Access Log (ssl) Statistics", ssl_lines).statusValue;
     }
     
     
@@ -932,8 +940,8 @@
               section4: `<tr>
                   <td>${icapReq}</td>
                   <td>${icapResp}</td>
-                  <td>${httpLog}MB</td>
-                  <td>${httpsLog}MB</td>
+                  <td>${httpLog}MB<br><small style="color:#666;">(main 0026: ${mainStatus026})</small></td>
+                  <td>${httpsLog}MB<br><small style="color:#666;">(ssl 0026: ${sslStatus026})</small></td>
                   <td>${Logbackup}</td>
                   <td>${syslogStatus}</td>
                   <td>${coreImage}</td>
