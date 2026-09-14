@@ -238,7 +238,7 @@
 <!-- 공통 헤더 + 제목 + 버전 -->
 <script>
   window.pageTitle = "ProxySG Sysinfo 분석";
-  window.pageVersion = "ver.2025.11.20.01";
+  window.pageVersion = "ver.2026.09.14";
 </script> 
 <script src="https://etech-symantec.github.io/header.js"></script>
 
@@ -806,13 +806,13 @@
       const main_lines = text.split("\n");  // 텍스트를 줄별로 분리
       const mainIndex = main_lines.findIndex(line => line.includes("Title: Access Log (main) Statistics"));
 
-      // AL_STATS_0037 값을 포함한 37번째 줄 확인
-      const http_targetLine = main_lines[mainIndex + 37]?.trim();
+      // AL_STATS_0027 값을 포함한 27번째 줄 확인
+      const http_targetLine = main_lines[mainIndex + 27]?.trim();
 
-      // AL_STATS_0037 다음 값을 추출
-      const http_match = http_targetLine.match(/AL_STATS_0037\s*(\d+)/);
+      // AL_STATS_0027 다음 값을 추출
+      const http_match = http_targetLine.match(/AL_STATS_0027\s*(\d+)/);
       if (http_match) {
-        httpLog = (http_match[1]/1000/1000).toFixed(1); // AL_STATS_0037 이후 숫자를 httpLog에 저장
+        httpLog = (http_match[1]/1000/1000).toFixed(1); // AL_STATS_0027 이후 숫자를 httpLog에 저장
       }
     }
 
@@ -825,13 +825,13 @@
       const ssl_lines = text.split("\n");  // 텍스트를 줄별로 분리
       const sslIndex = ssl_lines.findIndex(line => line.includes("Title: Access Log (ssl) Statistics"));
 
-      // AL_STATS_0037 값을 포함한 37번째 줄 확인
-      const ssl_targetLine = ssl_lines[sslIndex + 37]?.trim();
+      // AL_STATS_0027 값을 포함한 27번째 줄 확인
+      const ssl_targetLine = ssl_lines[sslIndex + 27]?.trim();
 
-      // AL_STATS_0037 다음 값을 추출
-      const ssl_match = ssl_targetLine.match(/AL_STATS_0037\s*(\d+)/);
+      // AL_STATS_0027 다음 값을 추출
+      const ssl_match = ssl_targetLine.match(/AL_STATS_0027\s*(\d+)/);
       if (ssl_match) {
-        httpsLog = (ssl_match[1]/1000/1000).toFixed(1); // AL_STATS_0037 이후 숫자를 httpsLog에 저장
+        httpsLog = (ssl_match[1]/1000/1000).toFixed(1); // AL_STATS_0027 이후 숫자를 httpsLog에 저장
       }
     }
     
