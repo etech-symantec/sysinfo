@@ -388,7 +388,15 @@
     const externalBytes = sumBytesByKeys(externalKeys);
 
     // 더 큰 값을 가진 항목을 표기
-    const deploymentMode = explicitBytes > externalBytes ? "Explicit" : "TP";
+    // 기존 조건: Explicit 합계가 더 크면 Explicit, 아니면 TP
+    // 추가 조건: 두 값이 모두 0이고 sysinfo에 "add all explicit 8080 intercept"가 있으면 Explicit
+    const hasExplicit8080 = /add\s+all\s+explicit\s+8080\s+intercept/i.test(text);
+    let deploymentMode;
+    if (explicitBytes === 0 && externalBytes === 0 && hasExplicit8080) {
+      deploymentMode = "Explicit";
+    } else {
+      deploymentMode = explicitBytes > externalBytes ? "Explicit" : "TP";
+    }
 
 
     // =======================================================================================
@@ -447,6 +455,10 @@
       for (let j = 0; j <= 3; j++) {
         interfaces.push(`${i}:${j}`);
       }
+    }
+    // 추가 대상 인터페이스: 9:0 ~ 9:9
+    for (let j = 0; j <= 9; j++) {
+      interfaces.push(`9:${j}`);
     }
 
     // 공통 처리 함수
