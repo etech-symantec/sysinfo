@@ -6,81 +6,211 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <meta charset="UTF-8">
 <title>ProxySG Sysinfo 분석</title>
 <style>
-  .section { background: white; margin: 20px 0; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
-  .section-header { background: #1e3a5f; color: white; padding: 6px 12px; border-radius: 8px 8px 0 0; font-weight: bold; }
+  /* ===================================================================
+     Theme tokens — navy ink + a single brass accent
+     =================================================================== */
+  :root {
+    --ink: #12263f;
+    --navy: #1e3a5f;
+    --navy-2: #2a4a73;
+    --mist: #eef1f6;
+    --paper: #ffffff;
+    --line: #dde3ec;
+    --line-soft: #e9edf3;
+    --text: #1c2a3d;
+    --muted: #6a7789;
+    --brass: #a9854c;
+    --brass-soft: #f6efe3;
+    --shadow: 0 1px 2px rgba(18,38,63,.05), 0 12px 28px -16px rgba(18,38,63,.22);
+  }
+  body {
+    background: var(--mist);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* === 리포트 섹션 / 표 === */
+  .section {
+    background: var(--paper);
+    margin: 18px 0;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    overflow-x: auto;
+  }
+  .section-header {
+    background: var(--ink);
+    color: #f3f5f9;
+    padding: 11px 18px;
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: .01em;
+    box-shadow: inset 0 -1px 0 rgba(169,133,76,.85);
+  }
   table { width: 100%; border-collapse: collapse; }
-  th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: center; font-size: 13px; }
-  th { background: #f0f2f5; font-weight: bold; }
-  .nok { background-color: #f9d6d6; }  /* 빨간색 배경 */
-  .yellow { background-color: #fff3cd; }  /* 노란색 */
-  .red { background-color: #f8d7da; }     /* 빨간색 */
-  .white { background-color: #f0f2f5; }     /* 기본 흰색 */
-  input[type=file] { margin: 15px 0; }
-  button { background:#1e3a5f; color:white; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; margin-top:10px; }
-  button:hover { background:#294b7a; }
-  
-  .button-bar {
-  display: flex;
-  justify-content: space-between;  /* 좌우 끝으로 배치 */
-  align-items: center;
-  margin: -10px 0;
+  th, td {
+    border: 1px solid var(--line-soft);
+    padding: 8px 12px;
+    text-align: center;
+    font-size: 13px;
   }
-
-  #fileInput {
-    flex: 1;
-    max-width: 180px; /* 필요 시 조정 */
+  th {
+    background: #f4f6fa;
+    color: #2b3b52;
+    font-weight: 600;
+    font-size: 12.5px;
+    border-color: var(--line);
   }
+  .nok    { background-color: #fbe4e4; }   /* 빨간색 배경 */
+  .yellow { background-color: #fdf3d3; }   /* 노란색 */
+  .red    { background-color: #f9dcdf; }   /* 빨간색 */
+  .white  { background-color: #f3f5f9; }   /* 기본 흰색 */
 
-  #downloadBtn {
-    background: #1e3a5f;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 6px;
+  /* === 파일 업로드 패널 === */
+  .upload-panel {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    padding: 18px 20px 20px;
+    margin: 18px 0 8px;
+  }
+  .upload-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px 16px;
+    flex-wrap: wrap;
+  }
+  .upload-pick {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+  }
+  /* 실제 input은 화면에서 숨기고(키보드 포커스는 유지), label을 버튼처럼 보이게 한다 */
+  .upload-pick input[type=file] {
+    position: absolute;
+    width: 1px; height: 1px;
+    margin: 0; padding: 0;
+    opacity: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .file-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 10px 18px;
+    background: var(--ink);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 10px;
     cursor: pointer;
-    margin-left: 10px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 8px 16px -10px rgba(18,38,63,.7);
+    transition: background-color .15s ease, transform .15s ease;
   }
-  
-  #downloadBtn:hover {
-    background: #294b7a;
+  .file-btn:hover { background: var(--navy-2); }
+  .file-btn:active { transform: translateY(1px); }
+  .file-btn svg { width: 18px; height: 18px; flex: none; }
+  .upload-pick input[type=file]:focus-visible + .file-btn {
+    outline: 2px solid var(--brass);
+    outline-offset: 3px;
   }
-  
+  .file-hint {
+    font-size: 13px;
+    color: var(--muted);
+    max-width: 46vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #downloadBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding: 9px 16px;
+    background: transparent;
+    color: var(--navy);
+    border: 1px solid #c5cedb;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    transition: background-color .15s ease, border-color .15s ease;
+  }
+  #downloadBtn:hover { background: #f2f5f9; border-color: var(--navy); }
+  #downloadBtn svg { width: 16px; height: 16px; flex: none; }
+
+  /* 🧲 드래그 앤 드롭 영역 */
+  #dropZone {
+    margin-top: 16px;
+    min-height: 132px;
+    padding: 28px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    text-align: center;
+    color: var(--navy);
+    background: #f7f9fc;
+    border: 1.5px dashed #b7c2d3;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: border-color .18s ease, background-color .18s ease, box-shadow .18s ease;
+  }
+  #dropZone:hover { border-color: var(--navy-2); background: #f2f6fb; }
+  #dropZone:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; }
+  #dropZone.dragover {
+    border-style: solid;
+    border-color: var(--brass);
+    background: var(--brass-soft);
+    color: var(--ink);
+    box-shadow: 0 0 0 4px rgba(169,133,76,.16);
+  }
+  #dropZone .dz-icon { width: 36px; height: 36px; margin-bottom: 4px; transition: transform .18s ease; }
+  #dropZone.dragover .dz-icon { transform: translateY(-3px); }
+  #dropZone .dz-title { font-size: 15px; font-weight: 600; color: var(--ink); }
+  #dropZone .dz-sub { font-size: 12.5px; color: var(--muted); }
+
+  /* === 첫 화면 안내 문구 === */
   .notice {
     display: flex;
     justify-content: center;
     align-items: center;
-    margin: 150px auto;
+    margin: 56px auto 80px;
   }
-
   .notice-box {
     display: flex;
     align-items: center;
-    background: linear-gradient(135deg, #e9eef8 0%, #f5f7fb 100%);
-    border: 1.5px solid #b0c4de;
-    border-radius: 20px;
-    padding: 15px 20px;
-    max-width: 680px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    gap: 16px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 18px 26px 18px 20px;
+    max-width: 640px;
+    box-shadow: var(--shadow);
   }
-
   .notice-icon {
-    font-size: 30px;
-    margin-right: 12px;
-    color: #1e3a5f;
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 44px; height: 44px;
+    margin: 0;
+    border-radius: 12px;
+    background: #eaf0f8;
+    color: var(--navy);
+    font-size: 20px;
   }
-
-  .notice-text {
-    font-size: 14px;
-    color: #2b2b2b;
-    line-height: 1.6;
-  }
-
-  .notice-text strong {
-    color: #1e3a5f;
-  }
+  .notice-text { font-size: 13.5px; line-height: 1.75; color: #33425a; }
+  .notice-text b, .notice-text strong { color: var(--ink); }
 
   /* === 모달 트리거 버튼 === */
   #openModal {
@@ -212,25 +342,88 @@
   .note { font-size: 13px; color: #1e3a8a; background: #eff6ff; border: 1px solid #bfdbfe; padding: 6px 10px; border-radius: 6px; }
   .badge { background: #e0e7ff; color: #1e3a8a; font-size: 12px; padding: 2px 6px; border-radius: 4px; margin-left: 6px; }
   
-  /* 🧲 드래그 앤 드롭 영역 스타일 */
-  #dropZone {
-    margin-top: 18px;
-    padding: 10px;
-    border: 2px dashed #1e3a5f;
+  /* === 리포트 2단 레이아웃: 왼편=기존 정보(① ~ ④), 오른편=신규 정보(⑤ ~ ⑥) === */
+  .report-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    gap: 16px;
+    align-items: start;
+  }
+  .report-columns .col-left,
+  .report-columns .col-right {
+    min-width: 0;          /* 표/그래프가 칼럼 밖으로 삐져나오지 않도록 */
+    overflow-x: auto;      /* 좁은 칼럼에서는 칼럼 안에서 가로 스크롤 */
+    padding: 4px 8px 18px;
+  }
+  @media (max-width: 1100px) {
+    .report-columns { grid-template-columns: minmax(0, 1fr); }
+  }
+
+  /* === 공통 버튼 / 플로팅 버튼 / 모달 다듬기 === */
+  button { background: var(--ink); border-radius: 10px; }
+  button:hover { background: var(--navy-2); }
+  #openModal {
+    background: var(--ink);
+    border-radius: 999px;
+    padding: 11px 20px;
+    font-size: 13.5px;
+    letter-spacing: .01em;
+    box-shadow: 0 1px 2px rgba(18,38,63,.2), 0 14px 26px -12px rgba(18,38,63,.55);
+    transition: background-color .15s ease, transform .15s ease;
+  }
+  #openModal:hover { background: var(--navy-2); transform: translateY(-1px); }
+  .modal-overlay { background: rgba(14,28,46,.5); backdrop-filter: blur(3px); }
+  .modal { border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 24px 60px -20px rgba(14,28,46,.55); }
+  .container { box-shadow: none; }
+  h2 { color: var(--ink); border-bottom: 1px solid var(--line); }
+  .badge { background: var(--brass-soft); color: #7a5d2c; }
+  .note { color: var(--navy); background: #eef3fa; border-color: #d3deee; }
+  input:focus, textarea:focus {
+    border-color: var(--navy-2);
+    box-shadow: 0 0 0 3px rgba(30,58,95,.16);
+  }
+
+  /* === ⑤ ⑥ 파일별 카드(details) === */
+  .diag {
+    margin: 12px 0;
+    background: var(--paper);
+    border: 1px solid var(--line);
     border-radius: 10px;
-    color: #1e3a5f;
-    text-align: center;
-    background: #f8fafc;
-    font-weight: 400;
-    transition: all 0.2s ease;
+    overflow: hidden;
   }
-  #dropZone.dragover {
-    background: #e0e7ff;
-    border-color: #2563eb;
-    color: #1e40af;
+  .diag > summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    cursor: pointer;
+    list-style: none;
+    font-weight: 600;
+    color: var(--ink);
   }
-  
-  
+  .diag > summary::-webkit-details-marker { display: none; }
+  .diag > summary::before {
+    content: "";
+    flex: none;
+    width: 7px; height: 7px;
+    border-right: 2px solid var(--brass);
+    border-bottom: 2px solid var(--brass);
+    transform: rotate(-45deg);
+    transition: transform .18s ease;
+  }
+  .diag[open] > summary { border-bottom: 1px solid var(--line-soft); }
+  .diag[open] > summary::before { transform: rotate(45deg); }
+  .diag-body { padding: 2px 16px 16px; }
+  .diag-h { margin: 18px 0 8px; font-size: 13.5px; font-weight: 600; color: var(--navy); }
+
+  @media (max-width: 640px) {
+    .upload-head { flex-direction: column; align-items: stretch; }
+    .file-hint { max-width: 100%; }
+    #downloadBtn { justify-content: center; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #dropZone, #dropZone .dz-icon, .file-btn, #downloadBtn, #openModal, .diag > summary::before { transition: none; }
+  }
 </style>
 </head>
 <body>
@@ -242,12 +435,29 @@
 </script> 
 <script src="https://etech-symantec.github.io/header.js"></script>
 
-<!-- 📂 파일 업로드 바 -->
-<div class="button-bar">
-  <input type="file" id="fileInput" accept=".txt" multiple>
+<!-- 📂 파일 업로드 패널 -->
+<div class="upload-panel">
+  <div class="upload-head">
+    <div class="upload-pick">
+      <input type="file" id="fileInput" accept=".txt" multiple>
+      <label for="fileInput" class="file-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2.5h7.5A2.5 2.5 0 0 1 21 10v7.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/></svg>
+        <span>sysinfo 파일 선택</span>
+      </label>
+      <span id="fileHint" class="file-hint">선택된 파일 없음</span>
+    </div>
+    <button id="downloadBtn" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7.5 11 4.5 4.5 4.5-4.5"/><path d="M5 19.5h14"/></svg>
+      <span>현재 페이지를 HTML로 저장</span>
+    </button>
+  </div>
+
   <!-- 🧲 드래그 앤 드롭 영역 -->
-  <div id="dropZone">⬆️ sysinfo 파일을 여기에 드래그해서 놓으세요.</div>
-  <button id="downloadBtn">💾 현재 페이지 HTML로 다운로드</button>
+  <div id="dropZone" tabindex="0" role="button" aria-label="sysinfo 파일을 끌어다 놓거나 클릭해서 선택">
+    <svg class="dz-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"/><path d="m7 8.5 5-5 5 5"/><path d="M4 15v2.5A2.5 2.5 0 0 0 6.5 20h11a2.5 2.5 0 0 0 2.5-2.5V15"/></svg>
+    <div class="dz-title">sysinfo 파일을 여기에 놓으세요</div>
+    <div class="dz-sub">클릭해서 선택할 수도 있고, .txt 파일 여러 개를 한 번에 올릴 수 있습니다.</div>
+  </div>
 </div>
 
 
@@ -294,6 +504,121 @@
       
     }
 
+    // Chart.js로 실제 그래프를 그리는 함수. section6의 canvas들이 DOM에 삽입된 뒤에 호출해야 한다.
+    function renderTrendCharts() {
+      const list = window.__sysinfoTrendCharts || [];
+      if (window.Chart && Chart.defaults) {
+        Chart.defaults.color = "#51607a";
+        Chart.defaults.borderColor = "#e6eaf1";
+        Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+      }
+      const fmtTick = (d) => {
+        const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+        const dd = String(d.getUTCDate()).padStart(2, "0");
+        const hh = String(d.getUTCHours()).padStart(2, "0");
+        const mi = String(d.getUTCMinutes()).padStart(2, "0");
+        return `${mm}/${dd} ${hh}:${mi}`;
+      };
+
+      list.forEach(({ idx, cpuSeries, memSeries, netSentMbps, netRecvMbps }) => {
+        // ── CPU/Memory 사용률(%) 차트 ──
+        const cpuMemCanvas = document.getElementById(`chart-cpumem-${idx}`);
+        if (cpuMemCanvas && (cpuSeries || memSeries)) {
+          const labelSource = (cpuSeries && memSeries)
+            ? (cpuSeries.values.length >= memSeries.values.length ? cpuSeries : memSeries)
+            : (cpuSeries || memSeries);
+          const n = labelSource.values.length;
+          const labels = labelSource.timestamps.slice(-n).map(fmtTick);
+          const datasets = [];
+          if (cpuSeries) {
+            datasets.push({
+              label: "CPU 사용률(%)",
+              data: cpuSeries.values.slice(-n),
+              borderColor: "#1e3a5f",
+              backgroundColor: "rgba(30,58,95,0.08)",
+              tension: 0.25,
+              pointRadius: 0,
+              borderWidth: 2,
+            });
+          }
+          if (memSeries) {
+            datasets.push({
+              label: "메모리 사용률(%)",
+              data: memSeries.values.slice(-n),
+              borderColor: "#2f8f83",
+              backgroundColor: "rgba(47,143,131,0.08)",
+              tension: 0.25,
+              pointRadius: 0,
+              borderWidth: 2,
+            });
+          }
+          const chart = new Chart(cpuMemCanvas.getContext("2d"), {
+            type: "line",
+            data: { labels, datasets },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              interaction: { mode: "index", intersect: false },
+              scales: {
+                y: { min: 0, max: 100, title: { display: true, text: "사용률(%)" } },
+                x: { ticks: { maxTicksLimit: 12, autoSkip: true } },
+              },
+              plugins: { legend: { position: "top" } },
+            },
+          });
+          window.__sysinfoChartInstances.push(chart);
+        }
+
+        // ── 네트워크 Tx/Rx 처리량(Mbps) 차트 ──
+        const netCanvas = document.getElementById(`chart-net-${idx}`);
+        if (netCanvas && (netSentMbps || netRecvMbps)) {
+          const labelSource = (netSentMbps && netRecvMbps)
+            ? (netSentMbps.values.length >= netRecvMbps.values.length ? netSentMbps : netRecvMbps)
+            : (netSentMbps || netRecvMbps);
+          const n = labelSource.values.length;
+          const labels = labelSource.timestamps.slice(-n).map(fmtTick);
+          const datasets = [];
+          if (netSentMbps) {
+            datasets.push({
+              label: "Tx (송신, Mbps)",
+              data: netSentMbps.values.slice(-n).map(v => Number(v.toFixed(2))),
+              borderColor: "#a9854c",
+              backgroundColor: "rgba(169,133,76,0.10)",
+              tension: 0.25,
+              pointRadius: 0,
+              borderWidth: 2,
+            });
+          }
+          if (netRecvMbps) {
+            datasets.push({
+              label: "Rx (수신, Mbps)",
+              data: netRecvMbps.values.slice(-n).map(v => Number(v.toFixed(2))),
+              borderColor: "#6d5a9c",
+              backgroundColor: "rgba(109,90,156,0.08)",
+              tension: 0.25,
+              pointRadius: 0,
+              borderWidth: 2,
+            });
+          }
+          const chart = new Chart(netCanvas.getContext("2d"), {
+            type: "line",
+            data: { labels, datasets },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              interaction: { mode: "index", intersect: false },
+              scales: {
+                y: { min: 0, title: { display: true, text: "Mbps" } },
+                x: { ticks: { maxTicksLimit: 12, autoSkip: true } },
+              },
+              plugins: { legend: { position: "top" } },
+            },
+          });
+          window.__sysinfoChartInstances.push(chart);
+        }
+      });
+    }
+
     // ✅ 여러 파일 업로드 대응
     document.getElementById("fileInput").addEventListener("change", async function (e) {
     
@@ -306,20 +631,404 @@
     // 상단 업로드 목록 표시
     const fileListHTML = files.map((f, i) => `<li>${i + 1}. ${f.name}</li>`).join("");
     document.getElementById("report").innerHTML = `
-      <div class="section">
-        <div class="section-header">📂 정리된 sysinfo 파일 목록 (${files.length}개)</div>
-        <ul style="margin:17px 10px;">${fileListHTML}<br></ul>
+      <div class="report-columns">
+        <div class="col-left" id="colLeft">
+          <div class="section">
+            <div class="section-header">📂 정리된 sysinfo 파일 목록 (${files.length}개)</div>
+            <ul style="margin:17px 10px;">${fileListHTML}<br></ul>
+          </div>
+        </div>
+        <div class="col-right" id="colRight"></div>
       </div>`;
+
+    // 이전 업로드에서 그려둔 Chart.js 인스턴스/트렌드 데이터를 정리한다
+    // (재업로드 시 같은 canvas id에 겹쳐 그려지거나 메모리 누수가 나는 것을 방지).
+    if (window.__sysinfoChartInstances) {
+      window.__sysinfoChartInstances.forEach(c => { try { c.destroy(); } catch (e) {} });
+    }
+    window.__sysinfoChartInstances = [];
+    window.__sysinfoTrendCharts = [];
 
     // Promise.all 로 모든 파일 처리
     const results = await Promise.all(
-      files.map((file) => {
+      files.map((file, fileIdx) => {
         return new Promise((resolve) => {
           const reader = new FileReader();
           reader.onload = function (ev) {
             const text = ev.target.result;
             const match = (r) => text.match(r)?.[1]?.trim() || "-";
             const oknok = (v) => (v.match(/NOK/i) ? 'class="nok"' : "");
+
+    // =======================================================================================
+    // 0. sysinfo 파일 하나만으로 뽑아낼 수 있는 상세 진단 정보
+    //    (CPU Monitor / HTTP Worker Statistics / TCP·IP Statistics / Access Log Statistics)
+    //    ※ ping 모니터링, TCP Connections(8082 별도 페이지), CE/Statistics 디스크 캐시처럼
+    //      장비에 실시간 접속해야 하는 정보는 sysinfo 파일만으로는 얻을 수 없어 제외했다.
+    // =======================================================================================
+
+    // ── CPU Monitor: 코어별 사용률 + 컴포넌트(프로세스 그룹)별 사용률 ──────────────
+    function parseCpuMonitor(text) {
+      const secMatch = text.match(/CPU Monitor:([\s\S]*?)_{10,}/);
+      const block = secMatch ? secMatch[1] : "";
+      const lines = block.split("\n");
+      const cpuHeaderRe = /^\s*CPU\s+(\d+)\s+(\d+)%\s*$/;
+      const compRe = /^[ \t]+([A-Za-z][A-Za-z0-9_\-\/. ]*?)\s+(\d+)%\s*$/;
+
+      const perCpu = [];
+      let current = null;
+      for (const line of lines) {
+        const h = line.match(cpuHeaderRe);
+        if (h) {
+          if (current) perCpu.push(current);
+          current = { cpu: `CPU ${h[1]}`, total: Number(h[2]), components: [] };
+          continue;
+        }
+        if (current) {
+          const c = line.match(compRe);
+          if (c) current.components.push({ name: c[1].trim(), pct: Number(c[2]) });
+        }
+      }
+      if (current) perCpu.push(current);
+      if (!perCpu.length) return null;
+
+      const agg = {};
+      perCpu.forEach(cpu => cpu.components.forEach(c => {
+        (agg[c.name] ||= []).push(c.pct);
+      }));
+      const compAvg = Object.entries(agg).map(([name, vals]) => ({
+        name,
+        avg: vals.reduce((a, b) => a + b, 0) / vals.length,
+        max: Math.max(...vals),
+        samples: vals.length,
+      })).sort((a, b) => b.avg - a.avg);
+
+      return { perCpu, compAvg };
+    }
+
+    // ── HTTP Worker Statistics ("HTTP Worker Statistics" 표) ──────────────────────
+    // sysinfo 표에는 항상 아래 순서대로 28개의 "라벨: 숫자" 라인이 출력되므로,
+    // 순서(위→아래) 기반으로 그대로 대입한다. Highwater(역대 최댓값)와
+    // "idle time was..." 항목은 화면에서 제외한다.
+    const HTTP_WORKER_ITEMS = [
+      ["max_concurrent_client_workers", "Maximum acceptable concurrent client workers"],
+      ["client_workers_created", "Currently created client workers"],
+      ["http1_client_workers_active", "HTTP 1.x client workers currently active"],
+      ["http1_client_workers_active_highwater", "active Highwater"],
+      ["http1_client_workers_created_idle", "created (incl. idle persistent client workers)"],
+      ["http1_client_workers_created_idle_highwater", "created Highwater (incl. idle persistent client workers)"],
+      ["http2_client_connections_active", "HTTP 2 client connections currently active"],
+      ["http2_client_connections_active_highwater", "active Highwater"],
+      ["http2_client_connections_created_idle", "created (incl. idle connections)"],
+      ["http2_client_connections_created_idle_highwater", "created Highwater (incl. idle connections)"],
+      ["http2_client_streams_active", "HTTP 2 client streams currently active"],
+      ["http2_client_streams_active_highwater", "active Highwater"],
+      ["http1_server_workers_active", "HTTP 1.x server workers currently active"],
+      ["http1_server_workers_active_highwater", "active Highwater"],
+      ["http2_server_streams_active", "HTTP 2 server streams currently active"],
+      ["http2_server_streams_active_highwater", "active Highwater"],
+      ["http2_server_connections_active", "HTTP 2 server connections currently active"],
+      ["http2_server_connections_active_highwater", "active Highwater"],
+      ["http2_server_connections_created_idle", "created (incl. idle connections)"],
+      ["http2_server_connections_created_idle_highwater", "created Highwater (incl. idle connections)"],
+      ["http2_client_stream_contexts_created", "HTTP/2 client stream contexts currently created"],
+      ["http2_server_stream_contexts_created", "HTTP/2 server stream contexts currently created"],
+      ["persistent_client_conn_close_failed_idle_queue_empty", "Failed attempts to close persistent client conns (idle queue empty)"],
+      ["persistent_client_conn_closed_idle_lt_2s", "Persistent client conns closed, idle < 2s"],
+      ["persistent_client_conn_closed_idle_2_to_4s", "Persistent client conns closed, idle 2-4s"],
+      ["persistent_client_conn_closed_idle_gt_4s", "Persistent client conns closed, idle > 4s"],
+      ["server_persistent_conn_cache_max_size", "Max size of server-side persistent conn cache"],
+      ["server_persistent_conn_cache_current_entries", "Current entries in server-side persistent conn cache"],
+    ];
+
+    function extractColonNumberLines(block) {
+      const out = [];
+      const re = /^_*\s*([A-Za-z][^:\n]*?)\s*:\s*(-?[\d,]+)\s*$/;
+      for (const line of block.split("\n")) {
+        const m = line.match(re);
+        if (m) out.push([m[1].trim(), Number(m[2].replace(/,/g, ""))]);
+      }
+      return out;
+    }
+
+    function parseHttpWorkerStats(text) {
+      const m = text.match(/HTTP Worker Statistics\s*\n([\s\S]*?)(?:\n[ \t]*\r?\n|_{10,}|$)/);
+      if (!m) return null;
+      const pairs = extractColonNumberLines(m[1]);
+      if (!pairs.length) return null;
+
+      const result = [];
+      const len = Math.min(HTTP_WORKER_ITEMS.length, pairs.length);
+      for (let i = 0; i < len; i++) {
+        const [key, label] = HTTP_WORKER_ITEMS[i];
+        if (/Highwater/i.test(label) || /when idle time was/i.test(label)) continue;
+        result.push({ key, label, value: pairs[i][1] });
+      }
+      return result.length ? result : null;
+    }
+
+    // ── TCP/IP General / TCP Statistics ────────────────────────────────────────
+    const TCP_GENERAL_ITEMS = [
+      ["tcp_queue_entries", "Entries in TCP queue"],
+      ["syns_ignored_accept_regulation", "Number of SYNs ignored due to acceptance regulation"],
+      ["accept_regulations_high_cpu", "Number of accept regulations due to high CPU"],
+    ];
+    const TCP_STATS_ITEMS = [
+      ["embryonic_connections_dropped", "Embryonic connections dropped"],
+      ["connections_not_accepted_queue_full", "Connections not accepted because the queue was full"],
+      ["tcp_time_wait_queue_entries", "Entries in TCP time wait queue"],
+      ["packets_in_hold_queue", "Current number of packets in hold queue"],
+      ["embryonic_connections_dropped_queue_overflow", "Embryonic connections dropped due to queue overflow"],
+    ];
+
+    function tcpSectionBlock(text, header) {
+      const re = new RegExp(header.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*\\n([\\s\\S]*?)(?:\\n[ \\t]*\\n|_{10,}|$)");
+      const m = text.match(re);
+      return m ? m[1] : null;
+    }
+
+    function findLabelValue(block, labelSubstring) {
+      if (!block) return null;
+      const safe = labelSubstring.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const re = new RegExp(safe + "[^\\n]*?:?[ \\t]*(-?[\\d,]+)[^\\n]*$", "im");
+      const m = block.match(re);
+      return m ? Number(m[1].replace(/,/g, "")) : null;
+    }
+
+    function parseTcpStats(text) {
+      const generalBlock = tcpSectionBlock(text, "TCP/IP General Statistics");
+      const tcpBlock = tcpSectionBlock(text, "TCP/IP TCP Statistics");
+      if (!generalBlock && !tcpBlock) return null;
+
+      const general = TCP_GENERAL_ITEMS.map(([key, label]) => ({ key, label, value: findLabelValue(generalBlock, label) }));
+      const tcp = TCP_STATS_ITEMS.map(([key, label]) => ({ key, label, value: findLabelValue(tcpBlock, label) }));
+      return { general, tcp };
+    }
+
+    // ── Access Log Statistics (sysinfo에 반복 등장하는 "Access Log (xxx) Statistics" 블록) ──
+    // 예전 버전은 "제목 줄 + 37번째 줄" 같은 위치 하드코딩이라 sysinfo 버전이 바뀌면
+    // 깨지기 쉬웠다. AL_STATS_0007(현재 크기, byte)/AL_STATS_0009(최대 크기, MB)를
+    // 각 로그 타입 블록 안에서 직접 정규식으로 찾아, main/ssl뿐 아니라 존재하는
+    // 모든 로그 타입(streaming/dns 등)에 대해 자동으로 뽑는다.
+    function bytesToReadable(n) {
+      const units = [["TB", 1024 ** 4], ["GB", 1024 ** 3], ["MB", 1024 ** 2], ["KB", 1024]];
+      for (const [unit, size] of units) {
+        if (n >= size) return `${(n / size).toFixed(2)} ${unit}`;
+      }
+      return `${n.toFixed(0)} B`;
+    }
+
+    function parseAccessLogStats(text) {
+      const titleRe = /Title:\s*Access Log \(([^)]+)\) Statistics/gi;
+      const matches = [...text.matchAll(titleRe)];
+      if (!matches.length) return null;
+
+      const results = [];
+      for (let i = 0; i < matches.length; i++) {
+        const start = matches[i].index;
+        const end = i + 1 < matches.length ? matches[i + 1].index : text.length;
+        const block = text.slice(start, Math.min(end, start + 6000));
+        const sizeMatch = block.match(/\bAL_STATS_0007\b[ \t]+(\d+)/);
+        const maxMatch = block.match(/\bAL_STATS_0009\b[ \t]+(\d+)/);
+        const currentBytes = sizeMatch ? Number(sizeMatch[1]) : null;
+        const maxMB = maxMatch ? Number(maxMatch[1]) : null;
+        const maxBytes = maxMB != null ? maxMB * 1000 * 1000 : null; // AL_STATS_0009 단위: MB(1000진법)
+        const pct = (currentBytes != null && maxBytes) ? (currentBytes / maxBytes * 100) : null;
+        results.push({
+          type: matches[i][1].trim(),
+          currentLabel: currentBytes != null ? bytesToReadable(currentBytes) : "-",
+          maxLabel: maxBytes != null ? bytesToReadable(maxBytes) : "-",
+          pct,
+        });
+      }
+      return results;
+    }
+
+    const cpuMonitor = parseCpuMonitor(text);
+    const httpWorkerStats = parseHttpWorkerStats(text);
+    const tcpStats = parseTcpStats(text);
+    const accessLogStats = parseAccessLogStats(text);
+
+    // 사용률(%)에 따른 색상 클래스 (기존 nok/yellow/red 스타일 재사용)
+    function pctClass(pct) {
+      if (pct == null) return "";
+      if (pct >= 90) return 'class="red"';
+      if (pct >= 70) return 'class="yellow"';
+      return "";
+    }
+
+    // ── 파일별 상세 진단 정보 블록(HTML) 생성 ──────────────────────────────────
+    function buildDetailBlock(fileName) {
+      let cpuHtml = '<p style="padding:8px 10px;color:#888;">CPU Monitor 데이터를 찾지 못했습니다.</p>';
+      if (cpuMonitor) {
+        const coreRows = cpuMonitor.perCpu.map(c =>
+          `<tr><td>${c.cpu}</td><td ${pctClass(c.total)}>${c.total}%</td></tr>`
+        ).join("");
+        const compRows = cpuMonitor.compAvg.slice(0, 8).map(c =>
+          `<tr><td>${c.name}</td><td>${c.avg.toFixed(1)}%</td><td>${c.max}%</td><td>${c.samples}</td></tr>`
+        ).join("");
+        cpuHtml = `
+          <div style="display:flex; gap:16px; flex-wrap:wrap;">
+            <table style="width:auto; min-width:160px;">
+              <tr><th>코어</th><th>사용률</th></tr>
+              ${coreRows}
+            </table>
+            <table style="width:auto; min-width:320px;">
+              <tr><th>컴포넌트(프로세스 그룹)</th><th>평균</th><th>최대</th><th>코어 수</th></tr>
+              ${compRows}
+            </table>
+          </div>`;
+      }
+
+      let httpHtml = '<p style="padding:8px 10px;color:#888;">HTTP Worker Statistics 데이터를 찾지 못했습니다.</p>';
+      if (httpWorkerStats) {
+        const rows = httpWorkerStats.map(i => `<tr><td style="text-align:left;">${i.label}</td><td>${i.value}</td></tr>`).join("");
+        httpHtml = `<table><tr><th>항목</th><th>값</th></tr>${rows}</table>`;
+      }
+
+      let tcpHtml = '<p style="padding:8px 10px;color:#888;">TCP/IP Statistics 데이터를 찾지 못했습니다.</p>';
+      if (tcpStats) {
+        const rows = [...tcpStats.general, ...tcpStats.tcp]
+          .map(i => `<tr><td style="text-align:left;">${i.label}</td><td>${i.value ?? "-"}</td></tr>`).join("");
+        tcpHtml = `<table><tr><th>항목</th><th>값</th></tr>${rows}</table>`;
+      }
+
+      let alHtml = '<p style="padding:8px 10px;color:#888;">Access Log Statistics 데이터를 찾지 못했습니다.</p>';
+      if (accessLogStats) {
+        const rows = accessLogStats.map(a =>
+          `<tr><td>${a.type}</td><td>${a.currentLabel}</td><td>${a.maxLabel}</td><td ${pctClass(a.pct)}>${a.pct != null ? a.pct.toFixed(1) + "%" : "-"}</td></tr>`
+        ).join("");
+        alHtml = `<table><tr><th>로그 종류</th><th>현재 크기</th><th>저장 최대 크기</th><th>사용률</th></tr>${rows}</table>`;
+      }
+
+      return `
+        <details class="diag">
+          <summary>🔧 ${fileName} — 상세 진단 정보 (CPU Monitor / HTTP Worker / TCP·IP / Access Log)</summary>
+          <div class="diag-body">
+            <h4 class="diag-h">CPU Monitor</h4>
+            ${cpuHtml}
+            <h4 class="diag-h">HTTP Worker Statistics</h4>
+            ${httpHtml}
+            <h4 class="diag-h">TCP/IP Statistics</h4>
+            ${tcpHtml}
+            <h4 class="diag-h">Access Log Statistics (전체 로그 타입)</h4>
+            ${alHtml}
+          </div>
+        </details>`;
+    }
+
+    const section5 = buildDetailBlock(file.name);
+
+    // =======================================================================================
+    // 0-2. 트렌드(시계열) 데이터 추출 — CPU/메모리 사용률, 네트워크 처리량
+    //    sysinfo 라인 포맷: <key>~<granularity>@<날짜> UTC[offset](count, interval): v1 v2 v3 ...
+    //    이미 ②번 표에서 Now/Peak 값만 뽑아 쓰던 바로 그 시계열 원본을, 값 하나만
+    //    꺼내는 대신 전체 구간 + 타임스탬프까지 복원해서 그래프로 그린다.
+    // =======================================================================================
+    function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+
+    const MONTH_IDX = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
+    function parseSysinfoDate(s) {
+      const m = s.match(/^[A-Za-z]{3}, (\d{1,2}) ([A-Za-z]{3}) (\d{4}) (\d{2}):(\d{2}):(\d{2})$/);
+      if (!m) return null;
+      const [, day, mon, year, hh, mi, ss] = m;
+      if (!(mon in MONTH_IDX)) return null;
+      return new Date(Date.UTC(Number(year), MONTH_IDX[mon], Number(day), Number(hh), Number(mi), Number(ss)));
+    }
+
+    // key~granularity@date UTC[offset](count, interval): v1 v2 ... 라인 하나를 찾아
+    // {timestamps, values, interval, granularity}로 변환한다. 못 찾으면 null.
+    function parseSeriesLine(text, keyLiteral, granularity) {
+      const pattern = new RegExp(
+        "^" + escapeRegex(keyLiteral) + "~" + escapeRegex(granularity) + "@" +
+        "([A-Za-z]{3}, \\d{1,2} [A-Za-z]{3} \\d{4} \\d{2}:\\d{2}:\\d{2}) UTC" +
+        "\\[(\\d+)\\]\\((\\d+),\\s*(\\d+)\\):\\s*([0-9.\\s-]+)\\s*$",
+        "m"
+      );
+      const m = text.match(pattern);
+      if (!m) return null;
+      const endDate = parseSysinfoDate(m[1]);
+      if (!endDate) return null;
+      const interval = Number(m[4]);
+      const values = m[5].trim().split(/\s+/).map(Number).filter(v => !Number.isNaN(v));
+      const count = values.length;
+      if (!count) return null;
+      // j번째(과거→현재) 값의 시각 = endDate - interval * (count - 1 - j)
+      const timestamps = values.map((_, i) => new Date(endDate.getTime() - interval * 1000 * (count - 1 - i)));
+      return { timestamps, values, interval, granularity };
+    }
+
+    // 후보 granularity를 순서대로 시도해 먼저 찾아지는 것을 반환한다.
+    function parseSeriesAny(text, keyLiteral, granularities) {
+      for (const g of granularities) {
+        const r = parseSeriesLine(text, keyLiteral, g);
+        if (r) return r;
+      }
+      return null;
+    }
+
+    // CPU / Memory 사용률(%) 추이 — Now/Peak 계산에 쓰던 것과 동일한 granularity 우선순위(hourly → daily)
+    const cpuSeries = parseSeriesAny(text, "system:cpu-usage", ["hourly", "daily"]);
+    const memSeries = parseSeriesAny(text, "system:memory-usage", ["hourly", "daily"]);
+
+    // 네트워크 Tx/Rx 추이 — calcRate()와 동일한 방식(daily15minute)으로 후보 인터페이스를 순회해
+    // 평균 트래픽이 가장 큰 인터페이스 하나를 골라 그 인터페이스의 Tx/Rx 시계열을 사용한다.
+    function findBestTrafficInterface(text) {
+      let best = null, bestAvg = -1, bestSent = null, bestRecv = null;
+      // Tx/Rx Rate 계산 대상과 동일: 0:0~4:3 + 9:0~9:9
+      const candidates = [];
+      for (let i = 0; i <= 4; i++) {
+        for (let j = 0; j <= 3; j++) candidates.push(`${i}:${j}`);
+      }
+      for (let j = 0; j <= 9; j++) candidates.push(`9:${j}`);
+
+      for (const iface of candidates) {
+        const sent = parseSeriesLine(text, `tcpip:interface:${iface}:bytes-sent`, "daily15minute");
+        const recv = parseSeriesLine(text, `tcpip:interface:${iface}:bytes-received`, "daily15minute");
+        if (!sent && !recv) continue;
+        const avgOf = (s) => s ? s.values.reduce((a, b) => a + b, 0) / s.values.length : 0;
+        const avg = avgOf(sent) + avgOf(recv);
+        if (avg > bestAvg) { bestAvg = avg; best = iface; bestSent = sent; bestRecv = recv; }
+      }
+      return best ? { iface: best, sent: bestSent, recv: bestRecv } : null;
+    }
+    const netTraffic = findBestTrafficInterface(text);
+
+    // byte(구간 합계) → Mbps(순간 전송률) 변환: bits = bytes*8, 구간(초)으로 나눔
+    function seriesToMbps(series) {
+      if (!series) return null;
+      return {
+        timestamps: series.timestamps,
+        values: series.values.map(v => (v * 8) / series.interval / 1_000_000),
+      };
+    }
+    const netSentMbps = netTraffic ? seriesToMbps(netTraffic.sent) : null;
+    const netRecvMbps = netTraffic ? seriesToMbps(netTraffic.recv) : null;
+
+    const hasCpuMemChart = !!(cpuSeries || memSeries);
+    const hasNetChart = !!(netSentMbps || netRecvMbps);
+
+    const section6 = (hasCpuMemChart || hasNetChart) ? `
+        <details class="diag" open>
+          <summary>📈 ${file.name} — 트렌드 그래프</summary>
+          <div class="diag-body">
+            ${hasCpuMemChart ? `
+            <h4 class="diag-h">CPU / Memory 사용률 추이 (%)</h4>
+            <div style="position:relative; height:260px; max-width:900px;"><canvas id="chart-cpumem-${fileIdx}"></canvas></div>` : ""}
+            ${hasNetChart ? `
+            <h4 class="diag-h">네트워크 처리량 추이 — Interface ${netTraffic ? netTraffic.iface : "-"} (Mbps)</h4>
+            <div style="position:relative; height:260px; max-width:900px;"><canvas id="chart-net-${fileIdx}"></canvas></div>` : ""}
+            ${(!hasCpuMemChart && !hasNetChart) ? '<p style="color:#888;">그래프로 그릴 수 있는 시계열 데이터를 찾지 못했습니다.</p>' : ""}
+          </div>
+        </details>` : "";
+
+    // 나중에 report DOM에 캔버스가 실제로 삽입된 뒤 Chart.js로 그리기 위해 전역 배열에 적재해둔다.
+    window.__sysinfoTrendCharts = window.__sysinfoTrendCharts || [];
+    window.__sysinfoTrendCharts.push({
+      idx: fileIdx,
+      cpuSeries, memSeries,
+      netSentMbps, netRecvMbps,
+      netIface: netTraffic ? netTraffic.iface : null,
+    });
 
     // =======================================================================================
     // 1. General Info
@@ -965,7 +1674,9 @@
                   <td>${Logbackup}</td>
                   <td>${syslogStatus}</td>
                   <td>${coreImage}</td>
-                </tr>`
+                </tr>`,
+              section5: section5,
+              section6: section6
             });
           };
           reader.readAsText(file);
@@ -978,11 +1689,14 @@
     const s2 = results.map((r) => r.section2).join("");
     const s3 = results.map((r) => r.section3).join("");
     const s4 = results.map((r) => r.section4).join("");
+    const s5 = results.map((r) => r.section5).join("");
+    const s6 = results.map((r) => r.section6).join("");
     
     const sanitize = (s) => s.replace(/\bNaN\b/g, "-").replace(/undefined|null/gi, "-");
 
 
-    document.getElementById("report").innerHTML += sanitize(`
+    // 왼편(기존 정보): 파일 목록 + ① ~ ④
+    document.getElementById("colLeft").insertAdjacentHTML("beforeend", sanitize(`
       <div class="section">
         <div class="section-header">① General Information & Configuration Backup</div>
         <table>
@@ -1070,7 +1784,26 @@
           </tr>
           ${s4}
         </table>
-      </div>`);
+      </div>`));
+
+    // 오른편(신규 정보): ⑤ 상세 진단 정보 + ⑥ 트렌드 그래프
+    document.getElementById("colRight").insertAdjacentHTML("beforeend", sanitize(`
+      <div class="section">
+        <div class="section-header">⑤ 상세 진단 정보 (파일별 · CPU Monitor / HTTP Worker / TCP·IP / Access Log)</div>
+        <div style="padding:10px 14px;">
+          ${s5}
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header">⑥ 트렌드 그래프 (파일별 · CPU/메모리 사용률, 네트워크 처리량 추이)</div>
+        <div style="padding:10px 14px;">
+          ${s6}
+        </div>
+      </div>`));
+
+    // 오른편 DOM에 canvas가 실제로 삽입된 뒤에 Chart.js로 그래프를 그린다.
+    renderTrendCharts();
   });
   
   
@@ -1135,6 +1868,20 @@
       const event = new Event("change");
       document.getElementById("fileInput").dispatchEvent(event);
     }
+  });
+
+  // 선택된 파일 안내 문구 + 드롭 영역 클릭/키보드로 파일 선택창 열기
+  const fileInputEl = document.getElementById("fileInput");
+  const fileHintEl = document.getElementById("fileHint");
+  fileInputEl.addEventListener("change", () => {
+    const n = fileInputEl.files ? fileInputEl.files.length : 0;
+    fileHintEl.textContent = n === 0 ? "선택된 파일 없음"
+      : n === 1 ? fileInputEl.files[0].name
+      : `${n}개 파일 선택됨`;
+  });
+  dropZone.addEventListener("click", () => fileInputEl.click());
+  dropZone.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInputEl.click(); }
   });
 </script>
 
