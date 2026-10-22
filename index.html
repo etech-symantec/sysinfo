@@ -421,6 +421,40 @@
     .file-hint { max-width: 100%; }
     #downloadBtn { justify-content: center; }
   }
+
+  /* === 파일 업로드 후: 상단 패널을 한 줄로 최소화 === */
+  .upload-panel.compact {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 12px;
+  }
+  .upload-panel.compact .upload-head { display: contents; }
+  .upload-panel.compact .upload-pick { order: 1; flex: none; }
+  .upload-panel.compact #dropZone {
+    order: 2;
+    flex: 1 1 auto;
+    min-height: 0;
+    margin: 0;
+    padding: 8px 14px;
+    flex-direction: row;
+    gap: 8px;
+    border-radius: 10px;
+  }
+  .upload-panel.compact #dropZone .dz-icon { width: 18px; height: 18px; margin: 0; }
+  .upload-panel.compact #dropZone .dz-title { font-size: 13px; font-weight: 500; }
+  .upload-panel.compact #dropZone .dz-sub { display: none; }
+  .upload-panel.compact #downloadBtn { order: 3; flex: none; }
+  .upload-panel.compact .file-btn { padding: 8px 14px; font-size: 13px; }
+  .upload-panel.compact .file-hint { max-width: 22vw; }
+  @media (max-width: 760px) {
+    .upload-panel.compact { flex-wrap: wrap; }
+    .upload-panel.compact #dropZone { flex-basis: 100%; order: 3; }
+    .upload-panel.compact #downloadBtn { order: 2; margin-left: auto; }
+    .upload-panel.compact .file-hint { max-width: 40vw; }
+  }
   @media (prefers-reduced-motion: reduce) {
     #dropZone, #dropZone .dz-icon, .file-btn, #downloadBtn, #openModal, .diag > summary::before { transition: none; }
   }
@@ -1878,6 +1912,8 @@
     fileHintEl.textContent = n === 0 ? "선택된 파일 없음"
       : n === 1 ? fileInputEl.files[0].name
       : `${n}개 파일 선택됨`;
+    // 파일이 올라오면 상단 업로드 패널을 한 줄로 줄인다
+    document.querySelector(".upload-panel").classList.toggle("compact", n > 0);
   });
   dropZone.addEventListener("click", () => fileInputEl.click());
   dropZone.addEventListener("keydown", (e) => {
