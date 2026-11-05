@@ -693,7 +693,7 @@
 <!-- 공통 헤더 + 제목 + 버전 -->
 <script>
   window.pageTitle = "ProxySG Sysinfo 분석";
-  window.pageVersion = "ver.2026.11.05.11";
+  window.pageVersion = "ver.2026.11.05.12";
 </script> 
 <script src="https://etech-symantec.github.io/header.js"></script>
 
@@ -1069,9 +1069,10 @@
               for (let i = 0; i < candidates.length; i++) {
                 const start = candidates[i];
                 if (start.index < cursor) continue;
-                if (start.index > cursor) {
-                  const gap = source.slice(cursor, start.index);
-                  if (gap.trim()) segments.push({title: order++ === 0 ? "기본 설정 (첫 줄 ~ 상세 구간 전)" : "기타 설정", text: gap});
+                if (start.index > cursor && order === 0) {
+                  const gap = source.slice(0, start.index);
+                  if (gap.trim()) segments.push({title: "기본 설정 (첫 줄 ~ 상세 구간 전)", text: gap});
+                  order = 1;
                 }
                 const nextStart = candidates.slice(i + 1).find(item => item.index > start.index);
                 const boundary = nextStart ? nextStart.index : source.length;
@@ -1097,17 +1098,14 @@
                 });
                 cursor = finish;
               }
-              if (cursor < source.length) {
-                const leftover = source.slice(cursor);
-                if (leftover.trim()) segments.push({
-                  title: candidates.length ? "기타 설정 (마지막)" : "기본 설정 (전체)",
-                  text: leftover
-                });
+              // 상세 구간 사이의 기타 설정은 목록에서 제외한다 (전체 내용에는 보존).
+              if (!candidates.length && source.trim()) {
+                segments.push({title: "기본 설정 (전체)", text: source});
               }
               return segments;
             };
             const renderSoftwareSubsections = part => {
-              const pieces = splitSoftwareDetails(part);
+              const pieces = [{title: "전체 내용", text: part.lines.join("\n")}, ...splitSoftwareDetails(part)];
               return `
                 <div class="raw-subsection-panel">
                   <div class="raw-subsection-heading">Software Configuration 상세 구간 (${pieces.length}개)</div>
@@ -1125,10 +1123,11 @@
                 </div>`;
             };
             const renderRawBlocks = (items, isImportant) => items.map(({part}, idx) => `
-              <details class="raw-block ${isImportant ? "raw-main-block" : "raw-other-block"}" data-raw-id="${registerRawBlock(part)}">
+              <details class="raw-block ${isImportant ? "raw-main-block" : "raw-other-block"}" data-raw-id="${registerRawBlock(part)}" ${normalizeSectionTitle(part.title) === "software configuration" ? 'data-software-parent="1"' : ""}>
                 <summary><span>${idx + 1}. ${escapeHTML(part.title)}</span><span class="raw-line-count">내용 ${countContentLines(part).toLocaleString()}줄</span><button type="button" class="raw-copy-button" aria-label="${escapeHTML(part.title)} 구간 전체 내용 복사" title="페이지 구분과 관계없이 구간 전체 원문 복사">전체 복사</button></summary>
-                <div class="raw-block-content" hidden></div>
-                ${normalizeSectionTitle(part.title) === "software configuration" ? renderSoftwareSubsections(part) : ""}
+                ${normalizeSectionTitle(part.title) === "software configuration"
+                  ? renderSoftwareSubsections(part)
+                  : '<div class="raw-block-content" hidden></div>'}
               </details>`).join("");
 
             const rawSectionsHTML = `
@@ -2318,7 +2317,7 @@
         </div>
       </div>`);
 
-    // 긴 원문은 페이지당 최대 약 50,000자만 DOM에 표시한다.
+    // 긴 원문은 페이지당 최대 약 100,000자만 DOM에 표시한다.
     const rawRoot = document.getElementById("rawSections");
     const searchInput = document.getElementById("rawSearchInput");
     const searchInfo = document.getElementById("rawSearchInfo");
@@ -2333,19 +2332,23 @@
       .replace(/^\s*\d+\.\s*/, "").trim() || "";
     const normalizeTitle = title => title.trim().replace(/\s+/g, " ").toLocaleLowerCase();
     const scopeTitles = new Set();
+    const softwareScope = normalizeTitle("Software Configuration");
     rawBlocks.forEach(block => {
       const title = sectionTitleOf(block);
       const key = normalizeTitle(title);
       block.dataset.searchSection = key;
-      if (key && !scopeTitles.has(key)) {
-        scopeTitles.add(key);
+      const isChild = block.classList.contains("raw-subsection");
+      // 동일한 하위 제목이 다른 장비에 있어도 검색 범위에는 하나만 표시한다.
+      const optionKey = (isChild ? "software-child:" : "section:") + key;
+      if (key && !scopeTitles.has(optionKey)) {
+        scopeTitles.add(optionKey);
         const option = document.createElement("option");
-        option.value = key;
-        option.textContent = title;
+        option.value = isChild ? "child:" + key : key;
+        option.textContent = isChild ? "    └ " + title : title;
         scopeSelect.appendChild(option);
       }
     });
-    const PAGE_CHARS = 50000;
+    const PAGE_CHARS = 100000;
     const MAX_MARKS_PER_PAGE = 400;
     let matchBlocks = [];
     let activeMatchIndex = -1;
@@ -2363,7 +2366,7 @@
       const id = Number(block.dataset.rawId);
       const cache = window.__sysinfoRawContent;
       const source = Array.isArray(cache) && typeof cache[id] === "string"
-        ? cache[id] : block.querySelector(".raw-block-content pre")?.textContent;
+        ? cache[id] : block.querySelector(":scope > .raw-block-content pre")?.textContent;
       if (typeof source !== "string") {
         button.textContent = "복사 불가";
         button.classList.add("copy-error");
@@ -2428,7 +2431,7 @@
       return low;
     };
     const renderRawPage = (block, pageIndex, hitOffset = -1) => {
-      const container = block.querySelector(".raw-block-content");
+      const container = block.querySelector(":scope > .raw-block-content");
       if (!container) return;
       const source = rawTextOf(block);
       const bounds = getPageBounds(block);
@@ -2460,6 +2463,11 @@
       }
       const toolbar = document.createElement("div");
       toolbar.className = "raw-page-toolbar";
+      const first = document.createElement("button");
+      first.type = "button";
+      first.textContent = "⏮ 처음";
+      first.disabled = page === 0;
+      first.addEventListener("click", () => renderRawPage(block, 0));
       const previous = document.createElement("button");
       previous.type = "button";
       previous.textContent = "◀ 이전 페이지";
@@ -2470,10 +2478,15 @@
       next.textContent = "다음 페이지 ▶";
       next.disabled = page >= total - 1;
       next.addEventListener("click", () => renderRawPage(block, page + 1));
+      const last = document.createElement("button");
+      last.type = "button";
+      last.textContent = "마지막 ⏭";
+      last.disabled = page >= total - 1;
+      last.addEventListener("click", () => renderRawPage(block, total - 1));
       const label = document.createElement("span");
       label.className = "raw-page-label";
       label.textContent = (page + 1) + " / " + total + " 페이지 · 전체 " + source.length.toLocaleString() + "자";
-      toolbar.append(previous, label, next);
+      toolbar.append(first, previous, label, next, last);
       container.replaceChildren(pre, toolbar);
       container.hidden = false;
       container.dataset.loaded = "1";
@@ -2485,7 +2498,8 @@
     rawRoot.addEventListener("toggle", event => {
       const block = event.target;
       if (!(block instanceof HTMLDetailsElement) || !(block.classList.contains("raw-block") || block.classList.contains("raw-subsection"))) return;
-      const container = block.querySelector(".raw-block-content");
+      if (block.dataset.softwareParent === "1") return;
+      const container = block.querySelector(":scope > .raw-block-content");
       if (!block.open) {
         if (container) {
           container.replaceChildren();
@@ -2519,21 +2533,32 @@
       activeMatchIndex = -1;
       rawBlocks.forEach(block => {
         block.classList.remove("raw-match", "raw-active-match");
-        const inScope = !selectedScope || block.dataset.searchSection === selectedScope;
+        const isSoftwareParent = block.dataset.softwareParent === "1";
+        const isChild = block.classList.contains("raw-subsection");
+        const target = selectedScope.startsWith("child:") ? selectedScope.slice(6) : selectedScope;
+        const inScope = !selectedScope || (
+          selectedScope === softwareScope
+            ? (isChild || isSoftwareParent)
+            : selectedScope.startsWith("child:")
+              ? isChild && block.dataset.searchSection === target
+              : !isChild && block.dataset.searchSection === target
+        );
         const heading = sectionTitleOf(block).toLocaleLowerCase();
-        const found = inScope && (!keyword || heading.includes(keyword) || rawTextOf(block).toLocaleLowerCase().includes(keyword));
+        // 상위 Software Configuration은 컨테이너이며, 결과는 하위 상세 항목으로만 표시한다.
+        const found = inScope && !isSoftwareParent &&
+          (!keyword || heading.includes(keyword) || rawTextOf(block).toLocaleLowerCase().includes(keyword));
         block.hidden = !found;
         if (keyword && found) {
           block.classList.add("raw-match");
           matchBlocks.push(block);
         }
-        if (block.open && inScope) renderRawPage(block, Number(block.dataset.rawPage || 0));
+        if (block.open && inScope && !isSoftwareParent) renderRawPage(block, Number(block.dataset.rawPage || 0));
       });
-      // 하위 구간만 일치해도 상위 Software Configuration을 숨기지 않는다.
-      rawRoot.querySelectorAll(".raw-block").forEach(parent => {
-        if (parent.querySelector(".raw-subsection:not([hidden])") && keyword) {
-          parent.hidden = false;
-        }
+      // 일치하는 하위 상세 항목이 있으면 상위 Software Configuration을 보이게 한다.
+      rawRoot.querySelectorAll('.raw-block[data-software-parent="1"]').forEach(parent => {
+        const visible = Array.from(parent.querySelectorAll(".raw-subsection")).some(child => !child.hidden);
+        parent.hidden = !visible;
+        if (visible && (keyword || selectedScope)) parent.open = true;
       });
       rawRoot.querySelectorAll(".raw-group").forEach(group => {
         group.hidden = (!!keyword || !!selectedScope) && !Array.from(group.querySelectorAll(".raw-block")).some(block => !block.hidden);
@@ -2594,8 +2619,8 @@
     // 저장본의 전체 원문은 복제 DOM에만 삽입, 화면 렌더링과 분리한다.
     const snapshot = document.documentElement.cloneNode(true);
     const cache = window.__sysinfoRawContent || [];
-    snapshot.querySelectorAll(".raw-block[data-raw-id]").forEach(details => {
-      const content = details.querySelector(".raw-block-content");
+    snapshot.querySelectorAll(".raw-block[data-raw-id], .raw-subsection[data-raw-id]").forEach(details => {
+      const content = details.querySelector(":scope > .raw-block-content");
       if (!content) return;
       const source = cache[Number(details.dataset.rawId)];
       if (typeof source !== "string") return;
