@@ -545,7 +545,13 @@
   .raw-search-info { font-size: 12px; color: var(--muted); }
   .raw-block.raw-match > summary { outline: 1px solid #c1a167; outline-offset: -1px; }
   .raw-block.raw-active-match > summary { background: #fff0ca; color: #5d4217; }
-  .raw-block mark { background: #ffda70; color: #17253a; border-radius: 2px; }
+  .raw-block mark { background: #ffda70; color: #17253a; border-radius: 2px; font-weight:700; }
+  .raw-block mark.raw-current-hit { background:#ff9d38; outline:2px solid #ad5a14; }
+  .raw-page-toolbar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; padding:9px 12px; background:#f4f7fb; border-top:1px solid var(--line); }
+  .raw-page-toolbar button { padding:5px 10px; font-size:12px; }
+  .raw-page-toolbar button:disabled { opacity:.45; cursor:default; }
+  .raw-page-label { font-size:12px; color:var(--navy); }
+  .raw-block-content[hidden] { display:none; }
   .raw-empty {
     padding: 14px 16px;
     color: var(--muted);
@@ -614,7 +620,7 @@
 <!-- 공통 헤더 + 제목 + 버전 -->
 <script>
   window.pageTitle = "ProxySG Sysinfo 분석";
-  window.pageVersion = "ver.2026.11.05.4";
+  window.pageVersion = "ver.2026.11.05.5";
 </script> 
 <script src="https://etech-symantec.github.io/header.js"></script>
 
@@ -2143,112 +2149,149 @@
         </div>
       </div>`);
 
-    // 구간 내용은 사용자가 펼칠 때만 텍스트 노드로 생성한다.
-    // innerHTML을 쓰지 않아 sysinfo 안의 특수문자도 안전하게 원문 그대로 표시한다.
+    // 긴 원문은 페이지당 약 12KB의 텍스트만 DOM에 표시한다.
     const rawRoot = document.getElementById("rawSections");
-    rawRoot.addEventListener("toggle", (event) => {
-      const details = event.target;
-      if (!(details instanceof HTMLDetailsElement) || !details.open || !details.classList.contains("raw-block")) return;
-      const container = details.querySelector(".raw-block-content");
-      if (!container || container.dataset.loaded === "1") return;
-      const rawId = Number(details.dataset.rawId);
-      const source = window.__sysinfoRawContent?.[rawId];
-      if (typeof source !== "string") return;
-      const pre = document.createElement("pre");
-      pre.textContent = source;
-      container.appendChild(pre);
-      container.hidden = false;
-      container.dataset.loaded = "1";
-    }, true);
-
-    // 검색은 메모리의 원문 캐시를 대상으로 수행하여 접힌 구간도 검색한다.
-    // DOM에 수만 줄을 생성하지 않고, 선택된 구간의 첫 일치 부분만 강조한다.
     const searchInput = document.getElementById("rawSearchInput");
     const searchInfo = document.getElementById("rawSearchInfo");
     const prevButton = document.getElementById("rawSearchPrev");
     const nextButton = document.getElementById("rawSearchNext");
     const clearButton = document.getElementById("rawSearchClear");
     const rawBlocks = Array.from(rawRoot.querySelectorAll(".raw-block[data-raw-id]"));
+    const PAGE_CHARS = 12000;
+    const MAX_MARKS_PER_PAGE = 400;
     let matchBlocks = [];
     let activeMatchIndex = -1;
     let searchTimer = null;
-    let searchGeneration = 0;
 
-    const rawTextOf = (block) => window.__sysinfoRawContent?.[Number(block.dataset.rawId)] || "";
-    const showFirstHit = (block, keyword) => {
-      const pre = block.querySelector(".raw-block-content pre");
-      if (!pre) return;
+    const rawTextOf = block => window.__sysinfoRawContent?.[Number(block.dataset.rawId)] || "";
+    const termOf = () => searchInput.value.trim().toLocaleLowerCase();
+    const getPageBounds = block => {
+      if (block._rawPageBounds) return block._rawPageBounds;
+      const raw = rawTextOf(block);
+      const bounds = [0];
+      for (let pos = 0; pos < raw.length;) {
+        let next = Math.min(raw.length, pos + PAGE_CHARS);
+        if (next < raw.length) {
+          const lineEnd = raw.lastIndexOf("\n", next);
+          if (lineEnd > pos + PAGE_CHARS / 2) next = lineEnd + 1;
+        }
+        pos = next;
+        bounds.push(pos);
+      }
+      if (bounds.length === 1) bounds.push(0);
+      block._rawPageBounds = bounds;
+      return bounds;
+    };
+    const pageForOffset = (bounds, offset) => {
+      let low = 0, high = bounds.length - 2;
+      while (low < high) {
+        const middle = (low + high + 1) >> 1;
+        if (bounds[middle] <= offset) low = middle;
+        else high = middle - 1;
+      }
+      return low;
+    };
+    const renderRawPage = (block, pageIndex, hitOffset = -1) => {
+      const container = block.querySelector(".raw-block-content");
+      if (!container) return;
       const source = rawTextOf(block);
-      const index = keyword ? source.toLocaleLowerCase().indexOf(keyword) : -1;
-      if (index === -1) {
-        if (pre.dataset.highlighted === "1") {
-          pre.textContent = source;
-          pre.dataset.highlighted = "0";
+      const bounds = getPageBounds(block);
+      const total = bounds.length - 1;
+      const page = Math.max(0, Math.min(total - 1, pageIndex));
+      const begin = bounds[page], finish = bounds[page + 1];
+      const visible = source.slice(begin, finish);
+      const keyword = termOf();
+      const pre = document.createElement("pre");
+      if (!keyword) {
+        pre.textContent = visible;
+      } else {
+        const lowered = visible.toLocaleLowerCase();
+        const frag = document.createDocumentFragment();
+        let cursor = 0, count = 0;
+        while (count < MAX_MARKS_PER_PAGE) {
+          const hit = lowered.indexOf(keyword, cursor);
+          if (hit < 0) break;
+          frag.appendChild(document.createTextNode(visible.slice(cursor, hit)));
+          const mark = document.createElement("mark");
+          mark.textContent = visible.slice(hit, hit + keyword.length);
+          if (hitOffset >= begin + hit && hitOffset < begin + hit + keyword.length) mark.classList.add("raw-current-hit");
+          frag.appendChild(mark);
+          cursor = hit + keyword.length;
+          count++;
+        }
+        frag.appendChild(document.createTextNode(visible.slice(cursor)));
+        pre.appendChild(frag);
+      }
+      const toolbar = document.createElement("div");
+      toolbar.className = "raw-page-toolbar";
+      const previous = document.createElement("button");
+      previous.type = "button";
+      previous.textContent = "◀ 이전 페이지";
+      previous.disabled = page === 0;
+      previous.addEventListener("click", () => renderRawPage(block, page - 1));
+      const next = document.createElement("button");
+      next.type = "button";
+      next.textContent = "다음 페이지 ▶";
+      next.disabled = page >= total - 1;
+      next.addEventListener("click", () => renderRawPage(block, page + 1));
+      const label = document.createElement("span");
+      label.className = "raw-page-label";
+      label.textContent = (page + 1) + " / " + total + " 페이지 · 전체 " + source.length.toLocaleString() + "자";
+      toolbar.append(previous, label, next);
+      container.replaceChildren(pre, toolbar);
+      container.hidden = false;
+      container.dataset.loaded = "1";
+      block.dataset.rawPage = String(page);
+      if (hitOffset >= 0) requestAnimationFrame(() => {
+        (pre.querySelector(".raw-current-hit") || pre.querySelector("mark"))?.scrollIntoView({block:"nearest"});
+      });
+    };
+    rawRoot.addEventListener("toggle", event => {
+      const block = event.target;
+      if (!(block instanceof HTMLDetailsElement) || !block.classList.contains("raw-block")) return;
+      const container = block.querySelector(".raw-block-content");
+      if (!block.open) {
+        if (container) {
+          container.replaceChildren();
+          container.dataset.loaded = "0";
         }
         return;
       }
-      const fragment = document.createDocumentFragment();
-      fragment.appendChild(document.createTextNode(source.slice(0, index)));
-      const mark = document.createElement("mark");
-      mark.textContent = source.slice(index, index + keyword.length);
-      fragment.appendChild(mark);
-      fragment.appendChild(document.createTextNode(source.slice(index + keyword.length)));
-      pre.replaceChildren(fragment);
-      pre.dataset.highlighted = "1";
-      requestAnimationFrame(() => mark.scrollIntoView({block: "nearest", behavior: "instant"}));
-    };
-
-    const activateResult = (index) => {
+      if (container?.dataset.loaded !== "1") renderRawPage(block, Number(block.dataset.rawPage || 0));
+    }, true);
+    const activateResult = index => {
       if (!matchBlocks.length) return;
-      rawBlocks.forEach(block => block.classList.remove("raw-active-match"));
+      matchBlocks[activeMatchIndex]?.classList.remove("raw-active-match");
       activeMatchIndex = (index + matchBlocks.length) % matchBlocks.length;
       const block = matchBlocks[activeMatchIndex];
-      const file = block.closest(".raw-file");
-      if (file) file.open = true;
+      block.closest(".raw-file").open = true;
       block.open = true;
-      // <details> 토글 이벤트가 렌더링되기 전에 즉시 결과를 보여준다.
-      const content = block.querySelector(".raw-block-content");
-      if (content && content.dataset.loaded !== "1") {
-        const pre = document.createElement("pre");
-        pre.textContent = rawTextOf(block);
-        content.appendChild(pre);
-        content.dataset.loaded = "1";
-        content.hidden = false;
-      }
       block.classList.add("raw-active-match");
-      showFirstHit(block, searchInput.value.trim().toLocaleLowerCase());
-      searchInfo.textContent = `${activeMatchIndex + 1} / ${matchBlocks.length}개 구간 일치`;
-      block.querySelector("summary")?.scrollIntoView({block: "nearest", behavior: "instant"});
+      const keyword = termOf();
+      const position = keyword ? rawTextOf(block).toLocaleLowerCase().indexOf(keyword) : -1;
+      const page = position >= 0 ? pageForOffset(getPageBounds(block), position) : 0;
+      renderRawPage(block, page, position);
+      searchInfo.textContent = (activeMatchIndex + 1) + " / " + matchBlocks.length + "개 구간 일치";
+      block.querySelector("summary")?.scrollIntoView({block:"nearest"});
     };
-
     const runRawSearch = () => {
-      const keyword = searchInput.value.trim().toLocaleLowerCase();
-      searchGeneration++;
+      const keyword = termOf();
       matchBlocks = [];
       activeMatchIndex = -1;
       rawBlocks.forEach(block => {
         block.hidden = false;
         block.classList.remove("raw-match", "raw-active-match");
-        // 기존 강조 문구는 재검색할 때 선택한 구간에서만 갱신
-        if (!keyword) {
-          const pre = block.querySelector(".raw-block-content pre");
-          if (pre && pre.dataset.highlighted === "1") {
-            pre.textContent = rawTextOf(block);
-            pre.dataset.highlighted = "0";
-          }
-          return;
-        }
         const heading = block.querySelector("summary")?.textContent.toLocaleLowerCase() || "";
-        const found = heading.includes(keyword) || rawTextOf(block).toLocaleLowerCase().includes(keyword);
+        const found = !keyword || heading.includes(keyword) || rawTextOf(block).toLocaleLowerCase().includes(keyword);
         block.hidden = !found;
-        if (found) {
+        if (keyword && found) {
           block.classList.add("raw-match");
           matchBlocks.push(block);
         }
+        if (block.open) renderRawPage(block, Number(block.dataset.rawPage || 0));
       });
       rawRoot.querySelectorAll(".raw-group").forEach(group => {
-        const visible = Array.from(group.querySelectorAll(".raw-block")).some(block => !block.hidden);
-        group.hidden = !!keyword && !visible;
+        group.hidden = !!keyword && !Array.from(group.querySelectorAll(".raw-block")).some(block => !block.hidden);
       });
       rawRoot.querySelectorAll(".raw-file").forEach(file => {
         const visible = Array.from(file.querySelectorAll(".raw-block")).some(block => !block.hidden);
@@ -2256,16 +2299,16 @@
         if (keyword && visible) file.open = true;
       });
       prevButton.disabled = nextButton.disabled = !matchBlocks.length;
-      searchInfo.textContent = !keyword ? "검색어를 입력하세요." : `${matchBlocks.length}개 구간 검색됨`;
+      searchInfo.textContent = !keyword ? "검색어를 입력하세요." : matchBlocks.length + "개 구간 검색됨";
     };
     searchInput.addEventListener("input", () => {
       clearTimeout(searchTimer);
       searchInfo.textContent = "검색 중...";
       searchTimer = setTimeout(runRawSearch, 250);
     });
-    searchInput.addEventListener("keydown", e => {
-      if (e.key === "Enter") {
-        e.preventDefault();
+    searchInput.addEventListener("keydown", event => {
+      if (event.key === "Enter") {
+        event.preventDefault();
         clearTimeout(searchTimer);
         runRawSearch();
         activateResult(0);
@@ -2294,22 +2337,21 @@
   // HTML 다운로드 버튼 기능
   // =======================================================================================
   document.getElementById("downloadBtn").addEventListener("click", function () {
-    // HTML 파일을 별도로 열어도 접힌 원문을 확인할 수 있도록 다운로드 시에만 내장한다.
+    // 저장본의 전체 원문은 복제 DOM에만 삽입, 화면 렌더링과 분리한다.
+    const snapshot = document.documentElement.cloneNode(true);
     const cache = window.__sysinfoRawContent || [];
-    document.querySelectorAll(".raw-block[data-raw-id]").forEach((details) => {
+    snapshot.querySelectorAll(".raw-block[data-raw-id]").forEach(details => {
       const content = details.querySelector(".raw-block-content");
-      if (!content || content.dataset.loaded === "1") return;
+      if (!content) return;
       const source = cache[Number(details.dataset.rawId)];
       if (typeof source !== "string") return;
       const pre = document.createElement("pre");
       pre.textContent = source;
-      content.appendChild(pre);
-      content.dataset.loaded = "1";
-      // 저장된 HTML에서도 details를 열면 원문이 보이도록 hidden 속성 해제
+      content.replaceChildren(pre);
       content.hidden = false;
+      content.dataset.loaded = "1";
     });
-    // 현재 페이지 HTML 전체를 Blob으로 저장
-    const fullHTML = document.documentElement.outerHTML;
+    const fullHTML = "<!DOCTYPE html>\n" + snapshot.outerHTML;
     const blob = new Blob([fullHTML], { type: "text/html" });
 
     // 오늘 날짜 기반 파일명
