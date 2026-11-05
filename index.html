@@ -515,7 +515,9 @@
     padding: 12px 14px;
     border-radius: 0;
     overflow: auto;
-    white-space: pre;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
     font-size: 12px;
     line-height: 1.55;
   }
@@ -587,7 +589,7 @@
 <!-- 공통 헤더 + 제목 + 버전 -->
 <script>
   window.pageTitle = "ProxySG Sysinfo 분석";
-  window.pageVersion = "ver.2026.11.05.2";
+  window.pageVersion = "ver.2026.11.05.3";
 </script> 
 <script src="https://etech-symantec.github.io/header.js"></script>
 
@@ -834,6 +836,7 @@
     }
     window.__sysinfoChartInstances = [];
     window.__sysinfoTrendCharts = [];
+    window.__sysinfoRawContent = []; // 클릭한 구간에만 원문을 생성하여 대용량 렌더링 방지
 
     // Promise.all 로 모든 파일 처리
     const results = await Promise.all(
@@ -919,10 +922,17 @@
             });
             mainSections.sort((a, b) => a.rank - b.rank || a.originalIndex - b.originalIndex);
 
+            // 파일별 캐시에는 텍스트 데이터만 보관. 접힌 항목의 <pre>는 만들지 않는다.
+            const rawStore = window.__sysinfoRawContent;
+            const registerRawBlock = (part) => {
+              const id = rawStore.length;
+              rawStore.push(part.lines.join("\n"));
+              return id;
+            };
             const renderRawBlocks = (items, isImportant) => items.map(({part}, idx) => `
-              <details class="raw-block ${isImportant ? "raw-main-block" : "raw-other-block"}">
+              <details class="raw-block ${isImportant ? "raw-main-block" : "raw-other-block"}" data-raw-id="${registerRawBlock(part)}">
                 <summary>${idx + 1}. ${escapeHTML(part.title)}</summary>
-                <pre>${escapeHTML(part.lines.join("\\n"))}</pre>
+                <div class="raw-block-content" hidden></div>
               </details>`).join("");
 
             const rawSectionsHTML = `
@@ -2101,6 +2111,24 @@
         </div>
       </div>`);
 
+    // 구간 내용은 사용자가 펼칠 때만 텍스트 노드로 생성한다.
+    // innerHTML을 쓰지 않아 sysinfo 안의 특수문자도 안전하게 원문 그대로 표시한다.
+    const rawRoot = document.getElementById("rawSections");
+    rawRoot.addEventListener("toggle", (event) => {
+      const details = event.target;
+      if (!(details instanceof HTMLDetailsElement) || !details.open || !details.classList.contains("raw-block")) return;
+      const container = details.querySelector(".raw-block-content");
+      if (!container || container.dataset.loaded === "1") return;
+      const rawId = Number(details.dataset.rawId);
+      const source = window.__sysinfoRawContent?.[rawId];
+      if (typeof source !== "string") return;
+      const pre = document.createElement("pre");
+      pre.textContent = source;
+      container.appendChild(pre);
+      container.hidden = false;
+      container.dataset.loaded = "1";
+    }, true);
+
     // 오른편 DOM에 canvas가 실제로 삽입된 뒤에 Chart.js로 그래프를 그린다.
     renderTrendCharts();
     progressTitle.textContent = "sysinfo 분석 완료";
@@ -2115,6 +2143,20 @@
   // HTML 다운로드 버튼 기능
   // =======================================================================================
   document.getElementById("downloadBtn").addEventListener("click", function () {
+    // HTML 파일을 별도로 열어도 접힌 원문을 확인할 수 있도록 다운로드 시에만 내장한다.
+    const cache = window.__sysinfoRawContent || [];
+    document.querySelectorAll(".raw-block[data-raw-id]").forEach((details) => {
+      const content = details.querySelector(".raw-block-content");
+      if (!content || content.dataset.loaded === "1") return;
+      const source = cache[Number(details.dataset.rawId)];
+      if (typeof source !== "string") return;
+      const pre = document.createElement("pre");
+      pre.textContent = source;
+      content.appendChild(pre);
+      content.dataset.loaded = "1";
+      // 저장된 HTML에서도 details를 열면 원문이 보이도록 hidden 속성 해제
+      content.hidden = false;
+    });
     // 현재 페이지 HTML 전체를 Blob으로 저장
     const fullHTML = document.documentElement.outerHTML;
     const blob = new Blob([fullHTML], { type: "text/html" });
