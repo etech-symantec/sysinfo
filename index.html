@@ -693,7 +693,7 @@
 <!-- 공통 헤더 + 제목 + 버전 -->
 <script>
   window.pageTitle = "ProxySG Sysinfo 분석";
-  window.pageVersion = "ver.2026.11.05.12";
+  window.pageVersion = "ver.2026.11.05.13";
 </script> 
 <script src="https://etech-symantec.github.io/header.js"></script>
 
@@ -1115,7 +1115,7 @@
                     const lineCount = item.text.split("\n").filter(line => line.trim()).length;
                     return `<details class="raw-subsection" data-raw-id="${id}">
                       <summary><span>${idx + 1}. ${escapeHTML(item.title)}</span>
-                      <span class="raw-line-count">내용 ${lineCount.toLocaleString()}줄</span>
+                      <span class="raw-line-count">내용 ${lineCount.toLocaleString()}줄 · ${item.text.length.toLocaleString()}자</span>
                       <button type="button" class="raw-copy-button" title="하위 구간 전체 원문 복사">전체 복사</button></summary>
                       <div class="raw-block-content" hidden></div>
                     </details>`;
@@ -1124,7 +1124,7 @@
             };
             const renderRawBlocks = (items, isImportant) => items.map(({part}, idx) => `
               <details class="raw-block ${isImportant ? "raw-main-block" : "raw-other-block"}" data-raw-id="${registerRawBlock(part)}" ${normalizeSectionTitle(part.title) === "software configuration" ? 'data-software-parent="1"' : ""}>
-                <summary><span>${idx + 1}. ${escapeHTML(part.title)}</span><span class="raw-line-count">내용 ${countContentLines(part).toLocaleString()}줄</span><button type="button" class="raw-copy-button" aria-label="${escapeHTML(part.title)} 구간 전체 내용 복사" title="페이지 구분과 관계없이 구간 전체 원문 복사">전체 복사</button></summary>
+                <summary><span>${idx + 1}. ${escapeHTML(part.title)}</span><span class="raw-line-count">내용 ${countContentLines(part).toLocaleString()}줄 · ${part.lines.join("\n").length.toLocaleString()}자</span><button type="button" class="raw-copy-button" aria-label="${escapeHTML(part.title)} 구간 전체 내용 복사" title="페이지 구분과 관계없이 구간 전체 원문 복사">전체 복사</button></summary>
                 ${normalizeSectionTitle(part.title) === "software configuration"
                   ? renderSoftwareSubsections(part)
                   : '<div class="raw-block-content" hidden></div>'}
@@ -2317,7 +2317,7 @@
         </div>
       </div>`);
 
-    // 긴 원문은 페이지당 최대 약 100,000자만 DOM에 표시한다.
+    // 긴 원문은 페이지당 최대 약 200,000자만 DOM에 표시한다.
     const rawRoot = document.getElementById("rawSections");
     const searchInput = document.getElementById("rawSearchInput");
     const searchInfo = document.getElementById("rawSearchInfo");
@@ -2348,7 +2348,7 @@
         scopeSelect.appendChild(option);
       }
     });
-    const PAGE_CHARS = 100000;
+    const PAGE_CHARS = 200000;
     const MAX_MARKS_PER_PAGE = 400;
     let matchBlocks = [];
     let activeMatchIndex = -1;
