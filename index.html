@@ -545,6 +545,16 @@
   .raw-search-info { font-size: 12px; color: var(--muted); }
   .raw-block.raw-match > summary { outline: 1px solid #c1a167; outline-offset: -1px; }
   .raw-block.raw-active-match > summary { background: #fff0ca; color: #5d4217; }
+  .raw-line-count {
+    display: inline-block;
+    flex: none;
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .raw-main-block > summary .raw-line-count { margin-left: 10px; }
   .raw-block mark { background: #ffda70; color: #17253a; border-radius: 2px; font-weight:700; }
   .raw-block mark.raw-current-hit { background:#ff9d38; outline:2px solid #ad5a14; }
   .raw-page-toolbar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; padding:9px 12px; background:#f4f7fb; border-top:1px solid var(--line); }
@@ -620,7 +630,7 @@
 <!-- 공통 헤더 + 제목 + 버전 -->
 <script>
   window.pageTitle = "ProxySG Sysinfo 분석";
-  window.pageVersion = "ver.2026.11.05.6";
+  window.pageVersion = "ver.2026.11.05.7";
 </script> 
 <script src="https://etech-symantec.github.io/header.js"></script>
 
@@ -960,9 +970,17 @@
               rawStore.push(part.lines.join("\n"));
               return id;
             };
+            // 구분선/제목/빈 줄은 제외하고 원문 내용이 있는 줄만 계산한다.
+            const countContentLines = part => {
+              const lines = part.lines;
+              const titleIndex = lines.findIndex((line, idx) =>
+                idx > 0 && line.trim() === part.title);
+              const content = lines.slice(titleIndex >= 0 ? titleIndex + 1 : 1);
+              return content.reduce((count, line) => count + (line.trim() ? 1 : 0), 0);
+            };
             const renderRawBlocks = (items, isImportant) => items.map(({part}, idx) => `
               <details class="raw-block ${isImportant ? "raw-main-block" : "raw-other-block"}" data-raw-id="${registerRawBlock(part)}">
-                <summary>${idx + 1}. ${escapeHTML(part.title)}</summary>
+                <summary><span>${idx + 1}. ${escapeHTML(part.title)}</span><span class="raw-line-count">내용 ${countContentLines(part).toLocaleString()}줄</span></summary>
                 <div class="raw-block-content" hidden></div>
               </details>`).join("");
 
@@ -2330,6 +2348,8 @@
     progressPercent.textContent = "100%";
     progressBar.style.width = "100%";
     progressTrack.setAttribute("aria-valuenow", 100);
+    // 완료된 진행률 박스는 즉시 숨기고, 다음 업로드 시 다시 표시한다.
+    progress.classList.remove("active");
   });
   
   
