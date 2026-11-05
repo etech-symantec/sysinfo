@@ -555,6 +555,25 @@
     white-space: nowrap;
   }
   .raw-main-block > summary .raw-line-count { margin-left: 10px; }
+  .raw-copy-button {
+    flex: none;
+    background: transparent;
+    color: var(--navy);
+    border: 1px solid #b9cadb;
+    border-radius: 7px;
+    padding: 5px 10px;
+    margin-left: 8px;
+    font-size: 11px;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .raw-copy-button:hover, .raw-copy-button:focus-visible {
+    color: #fff;
+    background: var(--navy);
+  }
+  .raw-copy-button.copy-success { color: #17633a; border-color: #64ae83; background: #e6f7eb; }
+  .raw-copy-button.copy-error { color: #8f2525; border-color: #e4a2a2; background: #fff0f0; }
+  .raw-main-block > summary .raw-copy-button { margin-right: 0; }
   .raw-block mark { background: #ffda70; color: #17253a; border-radius: 2px; font-weight:700; }
   .raw-block mark.raw-current-hit { background:#ff9d38; outline:2px solid #ad5a14; }
   .raw-page-toolbar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; padding:9px 12px; background:#f4f7fb; border-top:1px solid var(--line); }
@@ -630,7 +649,7 @@
 <!-- 공통 헤더 + 제목 + 버전 -->
 <script>
   window.pageTitle = "ProxySG Sysinfo 분석";
-  window.pageVersion = "ver.2026.11.05.7";
+  window.pageVersion = "ver.2026.11.05.8";
 </script> 
 <script src="https://etech-symantec.github.io/header.js"></script>
 
@@ -980,7 +999,7 @@
             };
             const renderRawBlocks = (items, isImportant) => items.map(({part}, idx) => `
               <details class="raw-block ${isImportant ? "raw-main-block" : "raw-other-block"}" data-raw-id="${registerRawBlock(part)}">
-                <summary><span>${idx + 1}. ${escapeHTML(part.title)}</span><span class="raw-line-count">내용 ${countContentLines(part).toLocaleString()}줄</span></summary>
+                <summary><span>${idx + 1}. ${escapeHTML(part.title)}</span><span class="raw-line-count">내용 ${countContentLines(part).toLocaleString()}줄</span><button type="button" class="raw-copy-button" aria-label="${escapeHTML(part.title)} 구간 전체 내용 복사" title="페이지 구분과 관계없이 구간 전체 원문 복사">전체 복사</button></summary>
                 <div class="raw-block-content" hidden></div>
               </details>`).join("");
 
@@ -2182,6 +2201,54 @@
     let searchTimer = null;
 
     const rawTextOf = block => window.__sysinfoRawContent?.[Number(block.dataset.rawId)] || "";
+    // 페이지 수와 무관하게 캐시 원문 전체를 복사한다. 내보낸 HTML에서는 포함된 pre를 사용한다.
+    rawRoot.addEventListener("click", async event => {
+      const button = event.target.closest(".raw-copy-button");
+      if (!button || !rawRoot.contains(button)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const block = button.closest(".raw-block");
+      if (!block) return;
+      const id = Number(block.dataset.rawId);
+      const cache = window.__sysinfoRawContent;
+      const source = Array.isArray(cache) && typeof cache[id] === "string"
+        ? cache[id] : block.querySelector(".raw-block-content pre")?.textContent;
+      if (typeof source !== "string") {
+        button.textContent = "복사 불가";
+        button.classList.add("copy-error");
+        return;
+      }
+      let success = false;
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(source);
+          success = true;
+        }
+      } catch (_) {}
+      if (!success) {
+        // HTTP/로컬 파일 등 클립보드 API가 제한된 환경을 위한 폴백.
+        const temp = document.createElement("textarea");
+        temp.value = source;
+        temp.setAttribute("readonly", "");
+        temp.style.cssText = "position:fixed;left:-9999px;top:0;opacity:0";
+        document.body.appendChild(temp);
+        temp.select();
+        try { success = document.execCommand("copy"); } catch (_) {}
+        temp.remove();
+      }
+      button.classList.toggle("copy-success", success);
+      button.classList.toggle("copy-error", !success);
+      button.textContent = success ? "복사 완료 ✓" : "복사 실패";
+      clearTimeout(button._copyResetTimer);
+      button._copyResetTimer = setTimeout(() => {
+        button.textContent = "전체 복사";
+        button.classList.remove("copy-success", "copy-error");
+      }, 1800);
+    });
+    rawRoot.addEventListener("keydown", event => {
+      if (event.target.closest(".raw-copy-button")) event.stopPropagation();
+    });
+
     const termOf = () => searchInput.value.trim().toLocaleLowerCase();
     const getPageBounds = block => {
       if (block._rawPageBounds) return block._rawPageBounds;
