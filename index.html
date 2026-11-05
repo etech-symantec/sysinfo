@@ -422,6 +422,82 @@
     #downloadBtn { justify-content: center; }
   }
 
+  /* === ⑦ 원본 Sysinfo <...> 구간 보기 === */
+  .raw-sections-wrap {
+    padding: 12px 14px 16px;
+  }
+  .raw-file {
+    margin: 12px 0;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .raw-file > summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    cursor: pointer;
+    list-style: none;
+    font-weight: 600;
+    color: var(--ink);
+    background: #f8fafc;
+  }
+  .raw-file > summary::-webkit-details-marker,
+  .raw-block > summary::-webkit-details-marker { display: none; }
+  .raw-file > summary::before,
+  .raw-block > summary::before {
+    content: "";
+    flex: none;
+    width: 7px;
+    height: 7px;
+    border-right: 2px solid var(--brass);
+    border-bottom: 2px solid var(--brass);
+    transform: rotate(-45deg);
+    transition: transform .18s ease;
+  }
+  .raw-file[open] > summary::before,
+  .raw-block[open] > summary::before { transform: rotate(45deg); }
+  .raw-file-body { padding: 10px 12px 12px; }
+  .raw-block {
+    margin: 8px 0;
+    border: 1px solid var(--line-soft);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .raw-block > summary {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 10px 12px;
+    cursor: pointer;
+    list-style: none;
+    color: var(--navy);
+    font-size: 13px;
+    font-weight: 600;
+    word-break: break-all;
+    background: #fbfcfe;
+  }
+  .raw-block[open] > summary { border-bottom: 1px solid var(--line-soft); }
+  .raw-block pre {
+    margin: 0;
+    min-height: 0;
+    max-height: 520px;
+    padding: 12px 14px;
+    border-radius: 0;
+    overflow: auto;
+    white-space: pre;
+    font-size: 12px;
+    line-height: 1.55;
+  }
+  .raw-empty {
+    padding: 14px 16px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
   /* === 파일 업로드 후: 상단 패널을 한 줄로 최소화 === */
   .upload-panel.compact {
     display: flex;
@@ -465,7 +541,7 @@
 <!-- 공통 헤더 + 제목 + 버전 -->
 <script>
   window.pageTitle = "ProxySG Sysinfo 분석";
-  window.pageVersion = "ver.2026.09.14";
+  window.pageVersion = "ver.2026.11.05";
 </script> 
 <script src="https://etech-symantec.github.io/header.js"></script>
 
@@ -673,7 +749,8 @@
           </div>
         </div>
         <div class="col-right" id="colRight"></div>
-      </div>`;
+      </div>
+      <div id="rawSections"></div>`;
 
     // 이전 업로드에서 그려둔 Chart.js 인스턴스/트렌드 데이터를 정리한다
     // (재업로드 시 같은 canvas id에 겹쳐 그려지거나 메모리 누수가 나는 것을 방지).
@@ -692,6 +769,49 @@
             const text = ev.target.result;
             const match = (r) => text.match(r)?.[1]?.trim() || "-";
             const oknok = (v) => (v.match(/NOK/i) ? 'class="nok"' : "");
+
+            // "<"로 시작하는 줄을 새 구간의 시작점으로 보고 다음 "<" 시작 줄 직전까지 묶는다.
+            // 원문은 HTML로 해석되지 않도록 escape 후 <pre> 안에 그대로 표시한다.
+            const escapeHTML = (value) => String(value ?? "")
+              .replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;")
+              .replace(/"/g, "&quot;")
+              .replace(/'/g, "&#39;");
+
+            const splitAngleSections = (source) => {
+              const lines = String(source ?? "").replace(/\r\n?/g, "\n").split("\n");
+              const sections = [];
+              let current = null;
+
+              lines.forEach((line) => {
+                const trimmed = line.trim();
+                if (trimmed.startsWith("<")) {
+                  if (current) sections.push(current);
+                  current = { title: trimmed, lines: [line] };
+                } else if (current) {
+                  current.lines.push(line);
+                }
+              });
+
+              if (current) sections.push(current);
+              return sections;
+            };
+
+            const angleSections = splitAngleSections(text);
+            const angleSectionsHTML = `
+              <details class="raw-file" open>
+                <summary>${escapeHTML(file.name)} · ${angleSections.length}개 구간</summary>
+                <div class="raw-file-body">
+                  ${angleSections.length
+                    ? angleSections.map((part, partIdx) => `
+                        <details class="raw-block">
+                          <summary>${partIdx + 1}. ${escapeHTML(part.title)}</summary>
+                          <pre>${escapeHTML(part.lines.join("\n"))}</pre>
+                        </details>`).join("")
+                    : '<div class="raw-empty">&lt; 로 시작하는 구간을 찾지 못했습니다.</div>'}
+                </div>
+              </details>`;
 
     // =======================================================================================
     // 0. sysinfo 파일 하나만으로 뽑아낼 수 있는 상세 진단 정보
@@ -1710,7 +1830,8 @@
                   <td>${coreImage}</td>
                 </tr>`,
               section5: section5,
-              section6: section6
+              section6: section6,
+              section7: angleSectionsHTML
             });
           };
           reader.readAsText(file);
@@ -1725,6 +1846,7 @@
     const s4 = results.map((r) => r.section4).join("");
     const s5 = results.map((r) => r.section5).join("");
     const s6 = results.map((r) => r.section6).join("");
+    const s7 = results.map((r) => r.section7).join("");
     
     const sanitize = (s) => s.replace(/\bNaN\b/g, "-").replace(/undefined|null/gi, "-");
 
@@ -1835,6 +1957,15 @@
           ${s6}
         </div>
       </div>`));
+
+    // 전체 하단: 원본 sysinfo에서 "<"로 시작하는 줄 기준으로 나눈 구간을 파일별로 표시
+    document.getElementById("rawSections").insertAdjacentHTML("beforeend", `
+      <div class="section">
+        <div class="section-header">⑦ 원본 Sysinfo 구간 보기 (&lt; 로 시작하는 줄 기준)</div>
+        <div class="raw-sections-wrap">
+          ${s7}
+        </div>
+      </div>`);
 
     // 오른편 DOM에 canvas가 실제로 삽입된 뒤에 Chart.js로 그래프를 그린다.
     renderTrendCharts();
