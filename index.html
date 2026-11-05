@@ -587,6 +587,39 @@
   .raw-main-block > summary .raw-copy-button { margin-right: 0; }
   .raw-block mark { background: #ffda70; color: #17253a; border-radius: 2px; font-weight:700; }
   .raw-block mark.raw-current-hit { background:#ff9d38; outline:2px solid #ad5a14; }
+  /* Software Configuration 상세 하위 구간 */
+  .raw-subsection-panel {
+    margin: 10px 12px 14px 26px;
+    padding: 12px;
+    background: #f6f9fc;
+    border: 1px solid #cbd9e9;
+    border-radius: 10px;
+  }
+  .raw-subsection-heading { font-weight: 700; color: var(--navy); font-size: 13px; margin-bottom: 8px; }
+  .raw-subsection {
+    border: 1px solid #d7e1ec;
+    border-radius: 8px;
+    margin: 7px 0;
+    background: #fff;
+    overflow: hidden;
+  }
+  .raw-subsection > summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 10px;
+    font-size: 12px;
+    color: var(--navy);
+    font-weight: 600;
+    list-style: none;
+  }
+  .raw-subsection > summary::-webkit-details-marker { display:none; }
+  .raw-subsection > summary::before { content:"▸"; color:var(--brass); }
+  .raw-subsection[open] > summary::before { content:"▾"; }
+  .raw-subsection .raw-line-count { margin-left:auto; }
+  .raw-subsection .raw-copy-button { margin-left:6px; }
+  .raw-subsection .raw-block-content pre { max-height:520px; }
   .raw-page-toolbar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; padding:9px 12px; background:#f4f7fb; border-top:1px solid var(--line); }
   .raw-page-toolbar button { padding:5px 10px; font-size:12px; }
   .raw-page-toolbar button:disabled { opacity:.45; cursor:default; }
@@ -660,7 +693,7 @@
 <!-- 공통 헤더 + 제목 + 버전 -->
 <script>
   window.pageTitle = "ProxySG Sysinfo 분석";
-  window.pageVersion = "ver.2026.11.05.9";
+  window.pageVersion = "ver.2026.11.05.10";
 </script> 
 <script src="https://etech-symantec.github.io/header.js"></script>
 
@@ -1008,10 +1041,94 @@
               const content = lines.slice(titleIndex >= 0 ? titleIndex + 1 : 1);
               return content.reduce((count, line) => count + (line.trim() ? 1 : 0), 0);
             };
+            // Software Configuration 내부의 inline 블록과 XML 블록을 정규식으로 분리.
+            // end-123-inline-xml은 end-123-inline으로 인정하지 않으며,
+            // inline 블록은 시작과 종료의 숫자가 같은 경우에만 정상 종료로 간주한다.
+            const splitSoftwareDetails = (part) => {
+              const source = part.lines.join("\n");
+              const candidates = [];
+              const inlineStart = /\binline\s+(exceptions|authentication-forms|policy\s+(?:central|local|vpm))\s+end-(\d+)-inline(?![-\w])/gi;
+              let found;
+              while ((found = inlineStart.exec(source))) {
+                candidates.push({
+                  index: found.index, afterStart: inlineStart.lastIndex,
+                  label: "inline " + found[1].toLowerCase().replace(/\s+/g, " "),
+                  id: found[2], type: "inline"
+                });
+              }
+              const xmlStart = /^[ \t]*<\?xml\b/gmi;
+              while ((found = xmlStart.exec(source))) {
+                candidates.push({
+                  index: found.index, afterStart: xmlStart.lastIndex,
+                  label: "XML Configuration", type: "xml"
+                });
+              }
+              candidates.sort((a, b) => a.index - b.index);
+              const segments = [];
+              let cursor = 0, order = 0;
+              for (let i = 0; i < candidates.length; i++) {
+                const start = candidates[i];
+                if (start.index < cursor) continue;
+                if (start.index > cursor) {
+                  const gap = source.slice(cursor, start.index);
+                  if (gap.trim()) segments.push({title: order++ === 0 ? "기본 설정 (첫 줄 ~ 상세 구간 전)" : "기타 설정", text: gap});
+                }
+                const nextStart = candidates.slice(i + 1).find(item => item.index > start.index);
+                const boundary = nextStart ? nextStart.index : source.length;
+                let closeAt = -1;
+                if (start.type === "inline") {
+                  const endRegex = new RegExp("\\bend-" + start.id + "-inline(?![-\\w])", "g");
+                  endRegex.lastIndex = start.afterStart;
+                  const endMatch = endRegex.exec(source);
+                  if (endMatch && endMatch.index < boundary) closeAt = endRegex.lastIndex;
+                } else {
+                  const endRegex = /\bend-\d+-inline-xml(?![-\w])/g;
+                  endRegex.lastIndex = start.afterStart;
+                  const endMatch = endRegex.exec(source);
+                  if (endMatch && endMatch.index < boundary) closeAt = endRegex.lastIndex;
+                }
+                // 종료 마커가 없을 때도 다음 시작 마커를 삼키지 않도록 분리한다.
+                const finish = closeAt >= 0 ? closeAt : boundary;
+                const segmentText = source.slice(start.index, finish);
+                segments.push({
+                  title: start.label + (start.id ? " (" + start.id + ")" : "") +
+                    (closeAt < 0 ? " · 종료 마커 미확인" : ""),
+                  text: segmentText
+                });
+                cursor = finish;
+              }
+              if (cursor < source.length) {
+                const leftover = source.slice(cursor);
+                if (leftover.trim()) segments.push({
+                  title: candidates.length ? "기타 설정 (마지막)" : "기본 설정 (전체)",
+                  text: leftover
+                });
+              }
+              return segments;
+            };
+            const renderSoftwareSubsections = part => {
+              const pieces = splitSoftwareDetails(part);
+              return \`
+                <div class="raw-subsection-panel">
+                  <div class="raw-subsection-heading">Software Configuration 상세 구간 (\${pieces.length}개)</div>
+                  \${pieces.map((item, idx) => {
+                    const id = rawStore.length;
+                    rawStore.push(item.text);
+                    const lineCount = item.text.split("\\n").filter(line => line.trim()).length;
+                    return \`<details class="raw-subsection" data-raw-id="\${id}">
+                      <summary><span>\${idx + 1}. \${escapeHTML(item.title)}</span>
+                      <span class="raw-line-count">내용 \${lineCount.toLocaleString()}줄</span>
+                      <button type="button" class="raw-copy-button" title="하위 구간 전체 원문 복사">전체 복사</button></summary>
+                      <div class="raw-block-content" hidden></div>
+                    </details>\`;
+                  }).join("")}
+                </div>\`;
+            };
             const renderRawBlocks = (items, isImportant) => items.map(({part}, idx) => `
               <details class="raw-block ${isImportant ? "raw-main-block" : "raw-other-block"}" data-raw-id="${registerRawBlock(part)}">
                 <summary><span>${idx + 1}. ${escapeHTML(part.title)}</span><span class="raw-line-count">내용 ${countContentLines(part).toLocaleString()}줄</span><button type="button" class="raw-copy-button" aria-label="${escapeHTML(part.title)} 구간 전체 내용 복사" title="페이지 구분과 관계없이 구간 전체 원문 복사">전체 복사</button></summary>
                 <div class="raw-block-content" hidden></div>
+                ${normalizeSectionTitle(part.title) === "software configuration" ? renderSoftwareSubsections(part) : ""}
               </details>`).join("");
 
             const rawSectionsHTML = `
@@ -2208,11 +2325,11 @@
     const prevButton = document.getElementById("rawSearchPrev");
     const nextButton = document.getElementById("rawSearchNext");
     const clearButton = document.getElementById("rawSearchClear");
-    const rawBlocks = Array.from(rawRoot.querySelectorAll(".raw-block[data-raw-id]"));
+    const rawBlocks = Array.from(rawRoot.querySelectorAll(".raw-block[data-raw-id], .raw-subsection[data-raw-id]"));
     const scopeSelect = document.getElementById("rawSearchScope");
     // 구간 제목을 실제 업로드한 파일에서 가져와 선택 목록을 구성한다.
     // 중복 제목은 한 번만 표시하고, 여러 파일의 같은 제목을 한 번에 검색한다.
-    const sectionTitleOf = block => block.querySelector("summary > span:first-child")?.textContent
+    const sectionTitleOf = block => block.querySelector(":scope > summary > span:first-child")?.textContent
       .replace(/^\s*\d+\.\s*/, "").trim() || "";
     const normalizeTitle = title => title.trim().replace(/\s+/g, " ").toLocaleLowerCase();
     const scopeTitles = new Set();
@@ -2241,7 +2358,7 @@
       if (!button || !rawRoot.contains(button)) return;
       event.preventDefault();
       event.stopPropagation();
-      const block = button.closest(".raw-block");
+      const block = button.closest(".raw-block[data-raw-id], .raw-subsection[data-raw-id]");
       if (!block) return;
       const id = Number(block.dataset.rawId);
       const cache = window.__sysinfoRawContent;
@@ -2367,7 +2484,7 @@
     };
     rawRoot.addEventListener("toggle", event => {
       const block = event.target;
-      if (!(block instanceof HTMLDetailsElement) || !block.classList.contains("raw-block")) return;
+      if (!(block instanceof HTMLDetailsElement) || !(block.classList.contains("raw-block") || block.classList.contains("raw-subsection"))) return;
       const container = block.querySelector(".raw-block-content");
       if (!block.open) {
         if (container) {
@@ -2384,6 +2501,8 @@
       activeMatchIndex = (index + matchBlocks.length) % matchBlocks.length;
       const block = matchBlocks[activeMatchIndex];
       block.closest(".raw-file").open = true;
+      const parentSection = block.closest(".raw-subsection-panel")?.closest(".raw-block");
+      if (parentSection) parentSection.open = true;
       block.open = true;
       block.classList.add("raw-active-match");
       const keyword = termOf();
@@ -2409,6 +2528,12 @@
           matchBlocks.push(block);
         }
         if (block.open && inScope) renderRawPage(block, Number(block.dataset.rawPage || 0));
+      });
+      // 하위 구간만 일치해도 상위 Software Configuration을 숨기지 않는다.
+      rawRoot.querySelectorAll(".raw-block").forEach(parent => {
+        if (parent.querySelector(".raw-subsection:not([hidden])") && keyword) {
+          parent.hidden = false;
+        }
       });
       rawRoot.querySelectorAll(".raw-group").forEach(group => {
         group.hidden = (!!keyword || !!selectedScope) && !Array.from(group.querySelectorAll(".raw-block")).some(block => !block.hidden);
