@@ -521,8 +521,16 @@
     font-size: 12px;
     line-height: 1.55;
   }
+  /* ⑦ 검색 바는 해당 구간을 스크롤하는 동안 상단에 고정한다.
+     공통 .section의 overflow-x:auto가 sticky 동작을 막으므로
+     ⑦에서만 overflow:visible로 재설정한다. */
+  .raw-search-section { overflow: visible; position: relative; }
   /* ⑦ 원본 구간 검색 */
   .raw-search-bar {
+    position: sticky;
+    top: 0;
+    z-index: 110;
+    box-shadow: 0 4px 12px rgba(18,38,63,.10);
     display: flex;
     align-items: center;
     flex-wrap: wrap;
@@ -693,7 +701,7 @@
 <!-- 공통 헤더 + 제목 + 버전 -->
 <script>
   window.pageTitle = "ProxySG Sysinfo 분석";
-  window.pageVersion = "ver.2026.11.05.13";
+  window.pageVersion = "ver.2026.11.05.14";
 </script> 
 <script src="https://etech-symantec.github.io/header.js"></script>
 
@@ -2299,7 +2307,7 @@
 
     // 전체 하단: 밑줄 구분선 다음의 제목을 기준으로 나눈 구간을 파일별로 표시
     document.getElementById("rawSections").insertAdjacentHTML("beforeend", `
-      <div class="section">
+      <div class="section raw-search-section">
         <div class="section-header">⑦ 원본 Sysinfo 구간 보기 (밑줄 구분선 + 제목 기준)</div>
         <div class="raw-search-bar">
           <label for="rawSearchScope" style="font-size:12px;white-space:nowrap;">검색 범위</label>
