@@ -531,6 +531,17 @@
     border-bottom: 1px solid var(--line);
     background: #f8fafc;
   }
+  .raw-search-bar select {
+    flex: 0 1 240px;
+    min-width: 170px;
+    max-width: 360px;
+    padding: 9px 11px;
+    border: 1px solid #b7c6d8;
+    border-radius: 8px;
+    color: var(--ink);
+    background: #fff;
+    font-size: 13px;
+  }
   .raw-search-bar input {
     flex: 1 1 260px;
     min-width: 140px;
@@ -649,7 +660,7 @@
 <!-- 공통 헤더 + 제목 + 버전 -->
 <script>
   window.pageTitle = "ProxySG Sysinfo 분석";
-  window.pageVersion = "ver.2026.11.05.8";
+  window.pageVersion = "ver.2026.11.05.9";
 </script> 
 <script src="https://etech-symantec.github.io/header.js"></script>
 
@@ -2175,6 +2186,10 @@
       <div class="section">
         <div class="section-header">⑦ 원본 Sysinfo 구간 보기 (밑줄 구분선 + 제목 기준)</div>
         <div class="raw-search-bar">
+          <label for="rawSearchScope" style="font-size:12px;white-space:nowrap;">검색 범위</label>
+          <select id="rawSearchScope" aria-label="검색 범위 선택">
+            <option value="">전체 구간</option>
+          </select>
           <input id="rawSearchInput" type="search" autocomplete="off" placeholder="구간 제목과 원문 검색 (모든 파일)" aria-label="원본 Sysinfo 검색">
           <button type="button" id="rawSearchPrev" disabled>이전</button>
           <button type="button" id="rawSearchNext" disabled>다음</button>
@@ -2194,6 +2209,25 @@
     const nextButton = document.getElementById("rawSearchNext");
     const clearButton = document.getElementById("rawSearchClear");
     const rawBlocks = Array.from(rawRoot.querySelectorAll(".raw-block[data-raw-id]"));
+    const scopeSelect = document.getElementById("rawSearchScope");
+    // 구간 제목을 실제 업로드한 파일에서 가져와 선택 목록을 구성한다.
+    // 중복 제목은 한 번만 표시하고, 여러 파일의 같은 제목을 한 번에 검색한다.
+    const sectionTitleOf = block => block.querySelector("summary > span:first-child")?.textContent
+      .replace(/^\s*\d+\.\s*/, "").trim() || "";
+    const normalizeTitle = title => title.trim().replace(/\s+/g, " ").toLocaleLowerCase();
+    const scopeTitles = new Set();
+    rawBlocks.forEach(block => {
+      const title = sectionTitleOf(block);
+      const key = normalizeTitle(title);
+      block.dataset.searchSection = key;
+      if (key && !scopeTitles.has(key)) {
+        scopeTitles.add(key);
+        const option = document.createElement("option");
+        option.value = key;
+        option.textContent = title;
+        scopeSelect.appendChild(option);
+      }
+    });
     const PAGE_CHARS = 50000;
     const MAX_MARKS_PER_PAGE = 400;
     let matchBlocks = [];
@@ -2361,31 +2395,38 @@
     };
     const runRawSearch = () => {
       const keyword = termOf();
+      const selectedScope = scopeSelect.value;
       matchBlocks = [];
       activeMatchIndex = -1;
       rawBlocks.forEach(block => {
-        block.hidden = false;
         block.classList.remove("raw-match", "raw-active-match");
-        const heading = block.querySelector("summary")?.textContent.toLocaleLowerCase() || "";
-        const found = !keyword || heading.includes(keyword) || rawTextOf(block).toLocaleLowerCase().includes(keyword);
+        const inScope = !selectedScope || block.dataset.searchSection === selectedScope;
+        const heading = sectionTitleOf(block).toLocaleLowerCase();
+        const found = inScope && (!keyword || heading.includes(keyword) || rawTextOf(block).toLocaleLowerCase().includes(keyword));
         block.hidden = !found;
         if (keyword && found) {
           block.classList.add("raw-match");
           matchBlocks.push(block);
         }
-        if (block.open) renderRawPage(block, Number(block.dataset.rawPage || 0));
+        if (block.open && inScope) renderRawPage(block, Number(block.dataset.rawPage || 0));
       });
       rawRoot.querySelectorAll(".raw-group").forEach(group => {
-        group.hidden = !!keyword && !Array.from(group.querySelectorAll(".raw-block")).some(block => !block.hidden);
+        group.hidden = (!!keyword || !!selectedScope) && !Array.from(group.querySelectorAll(".raw-block")).some(block => !block.hidden);
       });
       rawRoot.querySelectorAll(".raw-file").forEach(file => {
         const visible = Array.from(file.querySelectorAll(".raw-block")).some(block => !block.hidden);
-        file.hidden = !!keyword && !visible;
-        if (keyword && visible) file.open = true;
+        file.hidden = (!!keyword || !!selectedScope) && !visible;
+        if ((keyword || selectedScope) && visible) file.open = true;
       });
       prevButton.disabled = nextButton.disabled = !matchBlocks.length;
-      searchInfo.textContent = !keyword ? "검색어를 입력하세요." : matchBlocks.length + "개 구간 검색됨";
+      searchInfo.textContent = !keyword
+        ? (selectedScope ? "선택한 구간만 표시 중 · 검색어를 입력하세요." : "검색어를 입력하세요.")
+        : matchBlocks.length + "개 구간 검색됨";
     };
+    scopeSelect.addEventListener("change", () => {
+      clearTimeout(searchTimer);
+      runRawSearch();
+    });
     searchInput.addEventListener("input", () => {
       clearTimeout(searchTimer);
       searchInfo.textContent = "검색 중...";
@@ -2403,6 +2444,7 @@
     nextButton.addEventListener("click", () => activateResult(activeMatchIndex + 1));
     clearButton.addEventListener("click", () => {
       searchInput.value = "";
+      scopeSelect.value = "";
       clearTimeout(searchTimer);
       runRawSearch();
       searchInput.focus();
