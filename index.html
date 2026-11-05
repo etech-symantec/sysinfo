@@ -521,6 +521,31 @@
     font-size: 12px;
     line-height: 1.55;
   }
+  /* ⑦ 원본 구간 검색 */
+  .raw-search-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 9px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+    background: #f8fafc;
+  }
+  .raw-search-bar input {
+    flex: 1 1 260px;
+    min-width: 140px;
+    max-width: 520px;
+    padding: 9px 12px;
+    border: 1px solid #b7c6d8;
+    border-radius: 8px;
+    color: var(--ink);
+  }
+  .raw-search-bar button { padding: 8px 12px; font-size: 12px; }
+  .raw-search-bar button:disabled { opacity: .45; cursor: default; }
+  .raw-search-info { font-size: 12px; color: var(--muted); }
+  .raw-block.raw-match > summary { outline: 1px solid #c1a167; outline-offset: -1px; }
+  .raw-block.raw-active-match > summary { background: #fff0ca; color: #5d4217; }
+  .raw-block mark { background: #ffda70; color: #17253a; border-radius: 2px; }
   .raw-empty {
     padding: 14px 16px;
     color: var(--muted);
@@ -589,7 +614,7 @@
 <!-- 공통 헤더 + 제목 + 버전 -->
 <script>
   window.pageTitle = "ProxySG Sysinfo 분석";
-  window.pageVersion = "ver.2026.11.05.3";
+  window.pageVersion = "ver.2026.11.05.4";
 </script> 
 <script src="https://etech-symantec.github.io/header.js"></script>
 
@@ -2106,6 +2131,13 @@
     document.getElementById("rawSections").insertAdjacentHTML("beforeend", `
       <div class="section">
         <div class="section-header">⑦ 원본 Sysinfo 구간 보기 (밑줄 구분선 + 제목 기준)</div>
+        <div class="raw-search-bar">
+          <input id="rawSearchInput" type="search" autocomplete="off" placeholder="구간 제목과 원문 검색 (모든 파일)" aria-label="원본 Sysinfo 검색">
+          <button type="button" id="rawSearchPrev" disabled>이전</button>
+          <button type="button" id="rawSearchNext" disabled>다음</button>
+          <button type="button" id="rawSearchClear">초기화</button>
+          <span id="rawSearchInfo" class="raw-search-info" role="status" aria-live="polite">검색어를 입력하세요.</span>
+        </div>
         <div class="raw-sections-wrap">
           ${s7}
         </div>
@@ -2128,6 +2160,125 @@
       container.hidden = false;
       container.dataset.loaded = "1";
     }, true);
+
+    // 검색은 메모리의 원문 캐시를 대상으로 수행하여 접힌 구간도 검색한다.
+    // DOM에 수만 줄을 생성하지 않고, 선택된 구간의 첫 일치 부분만 강조한다.
+    const searchInput = document.getElementById("rawSearchInput");
+    const searchInfo = document.getElementById("rawSearchInfo");
+    const prevButton = document.getElementById("rawSearchPrev");
+    const nextButton = document.getElementById("rawSearchNext");
+    const clearButton = document.getElementById("rawSearchClear");
+    const rawBlocks = Array.from(rawRoot.querySelectorAll(".raw-block[data-raw-id]"));
+    let matchBlocks = [];
+    let activeMatchIndex = -1;
+    let searchTimer = null;
+    let searchGeneration = 0;
+
+    const rawTextOf = (block) => window.__sysinfoRawContent?.[Number(block.dataset.rawId)] || "";
+    const showFirstHit = (block, keyword) => {
+      const pre = block.querySelector(".raw-block-content pre");
+      if (!pre) return;
+      const source = rawTextOf(block);
+      const index = keyword ? source.toLocaleLowerCase().indexOf(keyword) : -1;
+      if (index === -1) {
+        if (pre.dataset.highlighted === "1") {
+          pre.textContent = source;
+          pre.dataset.highlighted = "0";
+        }
+        return;
+      }
+      const fragment = document.createDocumentFragment();
+      fragment.appendChild(document.createTextNode(source.slice(0, index)));
+      const mark = document.createElement("mark");
+      mark.textContent = source.slice(index, index + keyword.length);
+      fragment.appendChild(mark);
+      fragment.appendChild(document.createTextNode(source.slice(index + keyword.length)));
+      pre.replaceChildren(fragment);
+      pre.dataset.highlighted = "1";
+      requestAnimationFrame(() => mark.scrollIntoView({block: "nearest", behavior: "instant"}));
+    };
+
+    const activateResult = (index) => {
+      if (!matchBlocks.length) return;
+      rawBlocks.forEach(block => block.classList.remove("raw-active-match"));
+      activeMatchIndex = (index + matchBlocks.length) % matchBlocks.length;
+      const block = matchBlocks[activeMatchIndex];
+      const file = block.closest(".raw-file");
+      if (file) file.open = true;
+      block.open = true;
+      // <details> 토글 이벤트가 렌더링되기 전에 즉시 결과를 보여준다.
+      const content = block.querySelector(".raw-block-content");
+      if (content && content.dataset.loaded !== "1") {
+        const pre = document.createElement("pre");
+        pre.textContent = rawTextOf(block);
+        content.appendChild(pre);
+        content.dataset.loaded = "1";
+        content.hidden = false;
+      }
+      block.classList.add("raw-active-match");
+      showFirstHit(block, searchInput.value.trim().toLocaleLowerCase());
+      searchInfo.textContent = `${activeMatchIndex + 1} / ${matchBlocks.length}개 구간 일치`;
+      block.querySelector("summary")?.scrollIntoView({block: "nearest", behavior: "instant"});
+    };
+
+    const runRawSearch = () => {
+      const keyword = searchInput.value.trim().toLocaleLowerCase();
+      searchGeneration++;
+      matchBlocks = [];
+      activeMatchIndex = -1;
+      rawBlocks.forEach(block => {
+        block.hidden = false;
+        block.classList.remove("raw-match", "raw-active-match");
+        // 기존 강조 문구는 재검색할 때 선택한 구간에서만 갱신
+        if (!keyword) {
+          const pre = block.querySelector(".raw-block-content pre");
+          if (pre && pre.dataset.highlighted === "1") {
+            pre.textContent = rawTextOf(block);
+            pre.dataset.highlighted = "0";
+          }
+          return;
+        }
+        const heading = block.querySelector("summary")?.textContent.toLocaleLowerCase() || "";
+        const found = heading.includes(keyword) || rawTextOf(block).toLocaleLowerCase().includes(keyword);
+        block.hidden = !found;
+        if (found) {
+          block.classList.add("raw-match");
+          matchBlocks.push(block);
+        }
+      });
+      rawRoot.querySelectorAll(".raw-group").forEach(group => {
+        const visible = Array.from(group.querySelectorAll(".raw-block")).some(block => !block.hidden);
+        group.hidden = !!keyword && !visible;
+      });
+      rawRoot.querySelectorAll(".raw-file").forEach(file => {
+        const visible = Array.from(file.querySelectorAll(".raw-block")).some(block => !block.hidden);
+        file.hidden = !!keyword && !visible;
+        if (keyword && visible) file.open = true;
+      });
+      prevButton.disabled = nextButton.disabled = !matchBlocks.length;
+      searchInfo.textContent = !keyword ? "검색어를 입력하세요." : `${matchBlocks.length}개 구간 검색됨`;
+    };
+    searchInput.addEventListener("input", () => {
+      clearTimeout(searchTimer);
+      searchInfo.textContent = "검색 중...";
+      searchTimer = setTimeout(runRawSearch, 250);
+    });
+    searchInput.addEventListener("keydown", e => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        clearTimeout(searchTimer);
+        runRawSearch();
+        activateResult(0);
+      }
+    });
+    prevButton.addEventListener("click", () => activateResult(activeMatchIndex - 1));
+    nextButton.addEventListener("click", () => activateResult(activeMatchIndex + 1));
+    clearButton.addEventListener("click", () => {
+      searchInput.value = "";
+      clearTimeout(searchTimer);
+      runRawSearch();
+      searchInput.focus();
+    });
 
     // 오른편 DOM에 canvas가 실제로 삽입된 뒤에 Chart.js로 그래프를 그린다.
     renderTrendCharts();
