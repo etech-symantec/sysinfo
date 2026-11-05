@@ -702,7 +702,7 @@
 <!-- 공통 헤더 + 제목 + 버전 -->
 <script>
   window.pageTitle = "ProxySG Sysinfo 분석";
-  window.pageVersion = "ver.2026.11.05.15";
+  window.pageVersion = "ver.2026.11.05.16";
 </script> 
 <script src="https://etech-symantec.github.io/header.js"></script>
 
@@ -2539,11 +2539,16 @@
     }, true);
     const activateResult = index => {
       if (!matchBlocks.length) return;
-      matchBlocks[activeMatchIndex]?.classList.remove("raw-active-match");
       activeMatchIndex = (index + matchBlocks.length) % matchBlocks.length;
       const block = matchBlocks[activeMatchIndex];
-      block.closest(".raw-file").open = true;
       const parentSection = block.closest(".raw-subsection-panel")?.closest(".raw-block");
+      // 검색 결과는 항상 하나만 펼친다. Software Configuration의 부모는
+      // 선택한 하위 구간을 표시하기 위해서만 함께 열린 상태로 유지한다.
+      rawBlocks.forEach(other => {
+        other.classList.remove("raw-active-match");
+        if (other !== block && other !== parentSection) other.open = false;
+      });
+      block.closest(".raw-file").open = true;
       if (parentSection) parentSection.open = true;
       block.open = true;
       block.classList.add("raw-active-match");
@@ -2580,13 +2585,16 @@
           block.classList.add("raw-match");
           matchBlocks.push(block);
         }
-        if (block.open && inScope && !isSoftwareParent) renderRawPage(block, Number(block.dataset.rawPage || 0));
+        // 검색 범위를 새로 적용하는 동안 기존에 펼쳐진 내용은 모두 접는다.
+        if (keyword && block.open) block.open = false;
+        else if (block.open && inScope && !isSoftwareParent) renderRawPage(block, Number(block.dataset.rawPage || 0));
       });
       // 일치하는 하위 상세 항목이 있으면 상위 Software Configuration을 보이게 한다.
       rawRoot.querySelectorAll('.raw-block[data-software-parent="1"]').forEach(parent => {
         const visible = Array.from(parent.querySelectorAll(".raw-subsection")).some(child => !child.hidden);
         parent.hidden = !visible;
-        if (visible && (keyword || selectedScope)) parent.open = true;
+        // 실제 검색 결과를 활성화할 때만 해당 상위 구간을 연다.
+        if (keyword) parent.open = false;
       });
       rawRoot.querySelectorAll(".raw-group").forEach(group => {
         group.hidden = (!!keyword || !!selectedScope) && !Array.from(group.querySelectorAll(".raw-block")).some(block => !block.hidden);
@@ -2600,6 +2608,8 @@
       searchInfo.textContent = !keyword
         ? (selectedScope ? "선택한 구간만 표시 중 · 검색어를 입력하세요." : "검색어를 입력하세요.")
         : matchBlocks.length + "개 구간 검색됨";
+      // 검색 후 첫 번째 일치 구간만 자동으로 펼쳐서 하이라이트한다.
+      if (keyword && matchBlocks.length) activateResult(0);
     };
     scopeSelect.addEventListener("change", () => {
       clearTimeout(searchTimer);
@@ -2615,7 +2625,6 @@
         event.preventDefault();
         clearTimeout(searchTimer);
         runRawSearch();
-        activateResult(0);
       }
     });
     prevButton.addEventListener("click", () => activateResult(activeMatchIndex - 1));
