@@ -693,7 +693,7 @@
 <!-- 공통 헤더 + 제목 + 버전 -->
 <script>
   window.pageTitle = "ProxySG Sysinfo 분석";
-  window.pageVersion = "ver.2026.11.05.10";
+  window.pageVersion = "ver.2026.11.05.11";
 </script> 
 <script src="https://etech-symantec.github.io/header.js"></script>
 
@@ -1108,21 +1108,21 @@
             };
             const renderSoftwareSubsections = part => {
               const pieces = splitSoftwareDetails(part);
-              return \`
+              return `
                 <div class="raw-subsection-panel">
-                  <div class="raw-subsection-heading">Software Configuration 상세 구간 (\${pieces.length}개)</div>
-                  \${pieces.map((item, idx) => {
+                  <div class="raw-subsection-heading">Software Configuration 상세 구간 (${pieces.length}개)</div>
+                  ${pieces.map((item, idx) => {
                     const id = rawStore.length;
                     rawStore.push(item.text);
-                    const lineCount = item.text.split("\\n").filter(line => line.trim()).length;
-                    return \`<details class="raw-subsection" data-raw-id="\${id}">
-                      <summary><span>\${idx + 1}. \${escapeHTML(item.title)}</span>
-                      <span class="raw-line-count">내용 \${lineCount.toLocaleString()}줄</span>
+                    const lineCount = item.text.split("\n").filter(line => line.trim()).length;
+                    return `<details class="raw-subsection" data-raw-id="${id}">
+                      <summary><span>${idx + 1}. ${escapeHTML(item.title)}</span>
+                      <span class="raw-line-count">내용 ${lineCount.toLocaleString()}줄</span>
                       <button type="button" class="raw-copy-button" title="하위 구간 전체 원문 복사">전체 복사</button></summary>
                       <div class="raw-block-content" hidden></div>
-                    </details>\`;
+                    </details>`;
                   }).join("")}
-                </div>\`;
+                </div>`;
             };
             const renderRawBlocks = (items, isImportant) => items.map(({part}, idx) => `
               <details class="raw-block ${isImportant ? "raw-main-block" : "raw-other-block"}" data-raw-id="${registerRawBlock(part)}">
