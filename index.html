@@ -620,7 +620,7 @@
 <!-- 공통 헤더 + 제목 + 버전 -->
 <script>
   window.pageTitle = "ProxySG Sysinfo 분석";
-  window.pageVersion = "ver.2026.11.05.5";
+  window.pageVersion = "ver.2026.11.05.6";
 </script> 
 <script src="https://etech-symantec.github.io/header.js"></script>
 
@@ -2149,7 +2149,7 @@
         </div>
       </div>`);
 
-    // 긴 원문은 페이지당 약 12KB의 텍스트만 DOM에 표시한다.
+    // 긴 원문은 페이지당 최대 약 50,000자만 DOM에 표시한다.
     const rawRoot = document.getElementById("rawSections");
     const searchInput = document.getElementById("rawSearchInput");
     const searchInfo = document.getElementById("rawSearchInfo");
@@ -2157,7 +2157,7 @@
     const nextButton = document.getElementById("rawSearchNext");
     const clearButton = document.getElementById("rawSearchClear");
     const rawBlocks = Array.from(rawRoot.querySelectorAll(".raw-block[data-raw-id]"));
-    const PAGE_CHARS = 12000;
+    const PAGE_CHARS = 50000;
     const MAX_MARKS_PER_PAGE = 400;
     let matchBlocks = [];
     let activeMatchIndex = -1;
