@@ -2655,33 +2655,6 @@
   document.getElementById("downloadBtn").addEventListener("click", function () {
     // 저장본의 전체 원문은 복제 DOM에만 삽입, 화면 렌더링과 분리한다.
     const snapshot = document.documentElement.cloneNode(true);
-	
-    // 저장용 HTML에서 공통 헤더 설정 및 로더 제거
-    const headerLoader = snapshot.querySelector(
-      'script[src="https://etech-symantec.github.io/header.js"]'
-    );
-
-    if (headerLoader) {
-      const settings = headerLoader.previousElementSibling;
-
-      if (
-        settings?.tagName === "SCRIPT" &&
-        settings.textContent.includes("window.pageTitle") &&
-        settings.textContent.includes("window.pageVersion")
-      ) {
-        settings.remove();
-      }
-
-      const comment = headerLoader.previousSibling;
-      if (
-        comment?.nodeType === Node.COMMENT_NODE &&
-        comment.textContent.includes("공통 헤더")
-      ) {
-        comment.remove();
-      }
-
-      headerLoader.remove();
-    }
     const cache = window.__sysinfoRawContent || [];
     snapshot.querySelectorAll(".raw-block[data-raw-id], .raw-subsection[data-raw-id]").forEach(details => {
       const content = details.querySelector(":scope > .raw-block-content");
