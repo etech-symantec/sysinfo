@@ -2655,6 +2655,47 @@
   document.getElementById("downloadBtn").addEventListener("click", function () {
     // 저장본의 전체 원문은 복제 DOM에만 삽입, 화면 렌더링과 분리한다.
     const snapshot = document.documentElement.cloneNode(true);
+    
+    // 다운로드용 HTML에서 공통 헤더 및 테마 버튼 제거
+    snapshot.querySelectorAll(
+      '.header-wrap, #hs-default-theme'
+    ).forEach(el => el.remove());
+
+    // 공통 헤더 설정 스크립트 제거
+    snapshot.querySelectorAll('script').forEach(script => {
+      const content = script.textContent || '';
+      const src = script.getAttribute('src') || '';
+
+      if (
+        src.includes('etech-symantec.github.io/header.js') ||
+        (
+          content.includes('window.pageTitle') &&
+          content.includes('window.pageVersion')
+        )
+      ) {
+        script.remove();
+      }
+    });
+
+    // 공통 헤더 주석 제거
+    const walker = document.createTreeWalker(
+      snapshot,
+      NodeFilter.SHOW_COMMENT
+    );
+
+    const comments = [];
+    while (walker.nextNode()) {
+      if (
+        walker.currentNode.textContent.includes(
+          '공통 헤더 + 제목 + 버전'
+        )
+      ) {
+        comments.push(walker.currentNode);
+      }
+    }
+
+    comments.forEach(node => node.remove());
+
     const cache = window.__sysinfoRawContent || [];
     snapshot.querySelectorAll(".raw-block[data-raw-id], .raw-subsection[data-raw-id]").forEach(details => {
       const content = details.querySelector(":scope > .raw-block-content");
